@@ -1,23 +1,15 @@
-# About this guide
+# 关于本指南
 
-This guide is meant to help document how rustc – the Rust compiler –
-works, as well as to help new contributors get involved in rustc
-development.
+本指南旨在帮助记录rustc——Rust编译器的工作方式，并帮助新的参与者参与rustc开发。
 
-There are six parts to this guide:
+本指南分为六个部分：
 
-1. [Building, Debugging, and Contributing to `rustc`][p1]: Contains information that should be useful no matter how
-   you are contributing, such as procedures for contribution, building the
-   compiler, etc.
-2. [High-Level Compiler Architecture][p2]: Discusses the high-level
-   architecture of the compiler and stages of the compile process.
-3. [Source Code Representation][p3]: Describes the process of taking raw source code from the user and
-   transforming it into various forms that the compiler can work with easily.
-4. [Analysis][p4]: discusses the analyses that the compiler uses to check various
-   properties of the code and inform later stages of the compile process (e.g., type checking).
-5. [From MIR to Binaries][p5]: How linked executable machine code is generated.
-6. [Appendices][app] at the end with useful reference information. There are a
-   few of these with different information, inluding a glossary.
+1. 构建，调试和为rustc贡献代码：包含无论您准备如何作出贡献，这部分信息都应该是有用的，例如作出贡献的一般过程，如何构建编译器等。
+2. 编译器的高层架构：讨论编译器的高级架构和编译过程的各个阶段。
+3. 源码表示：描述了从用户那里获取源代码并将其转换为编译器可以轻松使用的各种形式的过程。
+4. 分析：讨论编译器用来检查代码的各种属性并通知编译过程的后期阶段（例如，类型检查）的分析过程。
+5. 从MIR到Binaries：如何生成链接好的可执行机器代码。
+6. 附录：其中有大量实用的参考信息，包括词汇表。
 
 [p1]: ./part-1-intro.md
 [p2]: ./part-2-intro.md
@@ -26,19 +18,15 @@ There are six parts to this guide:
 [p5]: ./part-5-intro.md
 [app]: ./appendix/background.md
 
-The Guide itself is of course open-source as well, and the sources can
-be found at the [GitHub repository]. If you find any mistakes in the
-guide, please file an issue about it, or even better, open a PR
-with a correction!
+该指南本身当然也是开源的，可以在[GitHub repository]中找到本书的源码。如果您在本书中发现任何错误，请开一个issue，或更好的，开一个带有更正内容的PR！
 
-## Other places to find information
+## 其他信息
 
-You might also find the following sites useful:
+以下站点也可能对您来说有用：
 
-- [rustc API docs] -- rustdoc documentation for the compiler
-- [Forge] -- contains documentation about rust infrastructure, team procedures, and more
-- [compiler-team] -- the home-base for the rust compiler team, with description
-  of the team procedures, active working groups, and the team calendar.
+- [rustc API docs] -- 编译器的rustdoc文档
+- [Forge] -- 包含rust基础设施、团队工作流程、以及更多
+- [compiler-team] -- rust编译器团队的基地，其中包含对团队工作流程，活动中的工作组和团队日历的描述。
 
 [GitHub repository]: https://github.com/rust-lang/rustc-dev-guide/
 [rustc API docs]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/

@@ -25,6 +25,5 @@ deploy:
   skip-cleanup: true
   github-token: $GITHUB_TOKEN
   local-dir: book/html
-  fqdn: rustc-dev-guide.rust-lang.org
   on:
     branch: master

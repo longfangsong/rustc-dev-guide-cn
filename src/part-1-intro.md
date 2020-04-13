@@ -1,7 +1,4 @@
-# Part 1: Building, Debugging, and Contributing to `rustc`
+# 第1部分：构建，调试和向`rustc`贡献代码
 
-This section of the rustc-dev-guide contains knowledge that should be useful to you
-regardless of what part of the compiler you are working on. This includes both
-technical info and tips (e.g. how to compile and debug the compiler) and info
-about processes in the Rust project (e.g. stabilization and info about the
-compiler team).
+rustc-dev-guide的这一部分包含对您无论您在编译器的哪个部分上工作都很有用的知识。 这既包括
+技术信息和提示（例如，如何编译和调试编译器）和Rust项目中的工作流程的信息（例如，稳定性和编译器小组的信息）。
