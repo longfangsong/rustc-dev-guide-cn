@@ -40,16 +40,6 @@ debug = true
 
 ## `x.py`是什么？
 
-`x.py` is the script used to orchestrate the tooling in the `rustc` repository.
-It is the script that can build docs, run tests, and compile `rustc`.
-It is the now preferred way to build `rustc` and it replaces the old makefiles
-from before. Below are the different ways to utilize `x.py` in order to
-effectively deal with the repo for various common tasks.
-
-This chapter focuses on the basics to be productive, but
-if you want to learn more about `x.py`, read its README.md
-[here](https://github.com/rust-lang/rust/blob/master/src/bootstrap/README.md).
-
 `x.py`是用于编排`rustc`存储库的各种构建的脚本。
 该脚本可以构建文档，运行测试并编译`rustc`。
 现在它替代了以前的makefile，是构建`rustc`的首选方法。下面是利用`x.py`来有效处理各种任务的常见方式。
