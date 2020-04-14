@@ -2,3 +2,4 @@ book
 
 # prevent accidentally changes
 book.toml
+.DS_Store

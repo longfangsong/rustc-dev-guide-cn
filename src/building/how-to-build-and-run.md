@@ -1,14 +1,10 @@
-# How to Build and Run the Compiler
+# 如何构建并运行编译器
 
-The compiler is built using a tool called `x.py`. You will need to
-have Python installed to run it. But before we get to that, if you're going to
-be hacking on `rustc`, you'll want to tweak the configuration of the compiler.
-The default configuration is oriented towards running the compiler as a user,
-not a developer.
+编译器使用 `x.py` 工具构建。您将需要安装Python才能运行它。 但是在此之前，如果您打算修改`rustc`的代码，则需要调整编译器的配置。因为默认配置面向以用户而不是开发人员来进行构建。
 
-## Create a config.toml
+## 创建一个 config.toml
 
-To start, copy [`config.toml.example`] to `config.toml`:
+先将 [`config.toml.example`] 复制为 `config.toml`:
 
 [`config.toml.example`]: https://github.com/rust-lang/rust/blob/master/config.toml.example
 
@@ -17,8 +13,7 @@ To start, copy [`config.toml.example`] to `config.toml`:
 > cp config.toml.example config.toml
 ```
 
-Then you will want to open up the file and change the following
-settings (and possibly others, such as `llvm.ccache`):
+然后，您将需要打开这个文件并更改以下设置（根据需求不同可能也要修改其他的设置，例如`llvm.ccache`）：
 
 ```toml
 [llvm]
@@ -41,12 +36,9 @@ codegen-units = 0
 debug = true
 ```
 
-If you have already built `rustc`, then you may have to execute `rm -rf build` for subsequent
-configuration changes to take effect. Note that `./x.py clean` will not cause a
-rebuild of LLVM, so if your configuration change affects LLVM, you will need to
-manually `rm -rf build/` before rebuilding.
+如果您已经构建过了`rustc`，那么您可能必须执行`rm -rf build`才能使配置更改生效。 请注意，`./x.py clean` 不会导致重新构建LLVM，因此，如果您的配置更改影响LLVM，则在重新构建之前，您将需要手动`rm -rf build /`。
 
-## What is `x.py`?
+## `x.py`是什么？
 
 `x.py` is the script used to orchestrate the tooling in the `rustc` repository.
 It is the script that can build docs, run tests, and compile `rustc`.
@@ -58,61 +50,32 @@ This chapter focuses on the basics to be productive, but
 if you want to learn more about `x.py`, read its README.md
 [here](https://github.com/rust-lang/rust/blob/master/src/bootstrap/README.md).
 
-## Bootstrapping
+`x.py`是用于编排`rustc`存储库的各种构建的脚本。
+该脚本可以构建文档，运行测试并编译`rustc`。
+现在它替代了以前的makefile，是构建`rustc`的首选方法。下面是利用`x.py`来有效处理各种任务的常见方式。
 
-One thing to keep in mind is that `rustc` is a _bootstrapping_
-compiler. That is, since `rustc` is written in Rust, we need to use an
-older version of the compiler to compile the newer version. In
-particular, the newer version of the compiler and some of the artifacts needed
-to build it, such as `libstd` and other tooling, may use some unstable features
-internally, requiring a specific version which understands these unstable
-features.
+本章侧重于提高生产力的基础知识，但是，如果您想了解有关`x.py`的更多信息，请在[此处](https://github.com/rust-lang/rust/blob/master/src/bootstrap/README.md)阅读其README.md。
 
-The result is that compiling `rustc` is done in stages:
+## 自举
 
-- **Stage 0:** the stage0 compiler is usually (you can configure `x.py` to use
-  something else) the current _beta_ `rustc` compiler and its associated dynamic
-  libraries (which `x.py` will download for you). This stage0 compiler is then
-  used only to compile `rustbuild`, `std`, and `rustc`. When compiling
-  `rustc`, this stage0 compiler uses the freshly compiled `std`.
-  There are two concepts at play here: a compiler (with its set of dependencies)
-  and its 'target' or 'object' libraries (`std` and `rustc`).
-  Both are staged, but in a staggered manner.
-- **Stage 1:** the code in your clone (for new version) is then
-  compiled with the stage0 compiler to produce the stage1 compiler.
-  However, it was built with an older compiler (stage0), so to
-  optimize the stage1 compiler we go to next the stage.
-  - In theory, the stage1 compiler is functionally identical to the
-    stage2 compiler, but in practice there are subtle differences. In
-    particular, the stage1 compiler itself was built by stage0 and
-    hence not by the source in your working directory: this means that
-    the symbol names used in the compiler source may not match the
-    symbol names that would have been made by the stage1 compiler.
-    This can be important when using dynamic linking (e.g., with
-    derives. Sometimes this means that some tests don't work when run
-    with stage1.
-- **Stage 2:** we rebuild our stage1 compiler with itself to produce
-  the stage2 compiler (i.e. it builds itself) to have all the _latest
-  optimizations_. (By default, we copy the stage1 libraries for use by
-  the stage2 compiler, since they ought to be identical.)
-- _(Optional)_ **Stage 3**: to sanity check our new compiler, we
-  can build the libraries with the stage2 compiler. The result ought
-  to be identical to before, unless something has broken.
+要记住的一件事是`rustc`是一个自举式编译器。也就是说，由于`rustc`是用Rust编写的，因此我们需要使用较旧版本的编译器来编译较新的版本。特别是，新版本的编译器以及构建该编译器所需的一些组件，例如`libstd`和其他工具，可能在内部使用一些unstable的特性，因此需要能使用这些unstable特性的特定版本。
 
-To read more about the bootstrap process, [read this chapter][bootstrap].
+因此编译`rustc`需要分阶段完成：
+
+- **Stage 0**：stage0中使用的编译器通常是当前最新的的beta 版本`rustc`编译器及其关联的动态库（您也可以将x.py配置为使用其他版本的编译器）。此stage 0编译器仅用于编译`rustbuild`，`std`和`rustc`。编译`rustc`时，此stage0编译器使用新编译的`std`。这里有两个概念：一个编译器（及其依赖）及其“目标”或“对象”库（`std`和`rustc`）。两者均会在此阶段出现，但以交错方式进行。
+- **Stage 1**：然后使用stage0编译器编译你的代码库中的代码，以生成新的stage1编译器。但是，它是使用较旧的编译器（stage0）构建的，因此为了优化stage1编译器，我们需要进入下一阶段。
+  - 从理论上讲，stage1编译器在功能上与stage2编译器相同，但实际上它们存在细微差别。特别是，stage1中使用的编译器本身是由stage0编译器构建的，而不是由您的工作目录中的源构建的：这意味着，在编译器源代码中使用的符号名称可能与stage1编译器生成的符号名称不匹配。这在使用动态链接时非常重要（例如，带有derive的代码）。有时这意味着某些测试在与stage1运行时不起作用。
+- **Stage 2**：我们使用stage1中得到的编译器重新构建其自身，以产生具有所有最新优化的stage2编译器。 （默认情况下，我们复制stage1中的库供stage2编译器使用，因为它们应该是相同的。）
+- （可选）**Stage 3**：要完全检查我们的新编译器，我们可以使用stage2编译器来构建库。除非出现故障，否则结果应与之前相同。
+  要了解有关自举过程的更多信息，请[阅读本章][bootstrap]。
 
 [bootstrap]: ./bootstrapping.md
 
-## Building the Compiler
+## 构建编译器
 
-To build a compiler, run `./x.py build`. This will do the whole bootstrapping
-process described above, producing a usable compiler toolchain from the source
-code you have checked out. This takes a long time, so it is not usually what
-you want to actually run (more on this later).
+要完整构建编译器，请运行`./x.py build`。 这将完成上述整个引导过程，并从您的源代码中生成可用的编译器工具链。 这需要很长时间，因此通常不需要真的运行这条命令（稍后会详细介绍）。
 
-There are many flags you can pass to the build command of `x.py` that can be
-beneficial to cutting down compile times or fitting other things you might
-need to change. They are:
+您可以将许多标志传递给`x.py`的build命令，这些标志可以减少编译时间或适应您可能需要更改的其他内容。 他们是：
 
 ```txt
 Options:
@@ -130,110 +93,76 @@ Options:
     -h, --help          print this help message
 ```
 
-For hacking, often building the stage 1 compiler is enough, but for
-final testing and release, the stage 2 compiler is used.
+对于一些hacking，通常构建stage 1编译器就足够了，但是对于最终测试和发布，则使用stage 2编译器。
 
-`./x.py check` is really fast to build the rust compiler.
-It is, in particular, very useful when you're doing some kind of
-"type-based refactoring", like renaming a method, or changing the
-signature of some function.
+`./x.py check`可以快速构建rust编译器。 当您执行某种“基于类型的重构”（例如重命名方法或更改某些函数的签名）时，它特别有用。
 
 <a name=command></a>
 
-Once you've created a config.toml, you are now ready to run
-`x.py`. There are a lot of options here, but let's start with what is
-probably the best "go to" command for building a local rust:
+在创建了config.toml之后，就可以运行`x.py`。 这里有很多选项，但让我们从构建本地rust的最佳命令开始：
 
 ```bash
 ./x.py build -i --stage 1 src/libstd
 ```
 
-This may *look* like it only builds `libstd`, but that is not the case.
-What this command does is the following:
+*看起来*好像它仅构建`libstd`，但事实并非如此。该命令的作用如下：
 
-- Build `libstd` using the stage0 compiler (using incremental)
-- Build `librustc` using the stage0 compiler (using incremental)
-  - This produces the stage1 compiler
-- Build `libstd` using the stage1 compiler (cannot use incremental)
+- 使用stage0编译器构建`libstd`（使用增量）
+- 使用stage0编译器构建`librustc`（使用增量）
+  - 这产生了stage1编译器
+- 使用stage1编译器构建`libstd`（不能使用增量式）
 
-This final product (stage1 compiler + libs built using that compiler)
-is what you need to build other rust programs (unless you use `#![no_std]` or
-`#![no_core]`).
+最终产品 (stage1编译器+使用该编译器构建的库)是构建其他rust程序所需要的（除非使用`#![no_std]`或`#![no_core]`）。
 
-The command includes the `-i` switch which enables incremental compilation.
-This will be used to speed up the first two steps of the process:
-in particular, if you make a small change, we ought to be able to use your old
-results to make producing the stage1 **compiler** faster.
+该命令包括`-i`开关，该开关启用增量编译。这将用于加快该过程的前两个步骤：特别是，如果您进行了较小的更改，我们应该能够使用您上一次编译的结果来更快地生成stage1编译器。
 
-Unfortunately, incremental cannot be used to speed up making the
-stage1 libraries.  This is because incremental only works when you run
-the *same compiler* twice in a row.  In this case, we are building a
-*new stage1 compiler* every time. Therefore, the old incremental
-results may not apply. **As a result, you will probably find that
-building the stage1 `libstd` is a bottleneck for you** -- but fear not,
-there is a (hacky) workaround.  See [the section on "recommended
-workflows"](./suggested.md) below.
+不幸的是，不能使用增量来加速stage1库的构建。这是因为增量仅在连续运行*同一*编译器两次时才起作用。在这种情况下，我们每次都会构建一个新的*stage1编译器*。因此，旧的增量结果可能不适用。**您可能会发现构建stage1 `libstd`对您来说是一个瓶颈** —— 但不要担心，这有一个（hacky的）解决方法。请参阅下面[“推荐的工作流程”](./suggested.md)部分。
 
-Note that this whole command just gives you a subset of the full `rustc`
-build. The **full** `rustc` build (what you get if you just say `./x.py
-build`) has quite a few more steps:
+请注意，这整个命令只是为您提供完整rustc构建的一部分。完整的rustc构建（即`./x.py build`命令）还有很多步骤：
 
-- Build `librustc` and `rustc` with the stage1 compiler.
-  - The resulting compiler here is called the "stage2" compiler.
-- Build `libstd` with stage2 compiler.
-- Build `librustdoc` and a bunch of other things with the stage2 compiler.
+- 使用stage1编译器构建librustc和rustc。
+  - 此处生成的编译器为stage2编译器。
+- 使用stage2编译器构建`libstd`。
+- 使用stage2编译器构建`librustdoc`和其他内容。
 
-<a name=toolchain></a>
+## 构建特定组件
 
-## Build specific components
-
-Build only the libcore library
+只构建 libcore 库
 
 ```bash
 ./x.py build src/libcore
 ```
 
-Build the libcore and libproc_macro library only
+只构建 libcore 和 libproc_macro 库
 
 ```bash
 ./x.py build src/libcore src/libproc_macro
 ```
 
-Build only libcore up to Stage 1
+只构建到 Stage 1 为止的 libcore
 
 ```bash
 ./x.py build src/libcore --stage 1
 ```
 
-Sometimes you might just want to test if the part you’re working on can
-compile. Using these commands you can test that it compiles before doing
-a bigger build to make sure it works with the compiler. As shown before
-you can also pass flags at the end such as --stage.
+有时您可能只想测试您正在处理的部分是否可以编译。 使用这些命令，您可以在进行较大的构建之前进行测试，以确保它可以与编译器一起使用。 如前所示，您还可以在末尾传递标志，例如--stage。
 
-## Creating a rustup toolchain
+## 创建一个rustup工具链
 
-Once you have successfully built `rustc`, you will have created a bunch
-of files in your `build` directory. In order to actually run the
-resulting `rustc`, we recommend creating rustup toolchains. The first
-one will run the stage1 compiler (which we built above). The second
-will execute the stage2 compiler (which we did not build, but which
-you will likely need to build at some point; for example, if you want
-to run the entire test suite).
+成功构建rustc之后，您在构建目录中已经创建了一堆文件。 为了实际运行生成的`rustc`，我们建议创建两个rustup工具链。 第一个将运行stage1编译器（上面构建的结果）。 第二个将执行stage2编译器（我们尚未构建这个编译器，但是您可能需要在某个时候构建它；例如，如果您想运行整个测试套件）。
 
 ```bash
 rustup toolchain link stage1 build/<host-triple>/stage1
 rustup toolchain link stage2 build/<host-triple>/stage2
 ```
 
-The `<host-triple>` would typically be one of the following:
+ `<host-triple>` 一般来说是以下三者之一:
 
 - Linux: `x86_64-unknown-linux-gnu`
 - Mac: `x86_64-apple-darwin`
 - Windows: `x86_64-pc-windows-msvc`
 
-Now you can run the `rustc` you built with. If you run with `-vV`, you
-should see a version number ending in `-dev`, indicating a build from
-your local environment:
+现在，您可以运行构建出的`rustc`。 如果使用`-vV`运行，则应该看到以`-dev`结尾的版本号，表示从本地环境构建的版本：
 
 ```bash
 $ rustc +stage1 -vV
@@ -245,32 +174,23 @@ host: x86_64-unknown-linux-gnu
 release: 1.25.0-dev
 LLVM version: 4.0
 ```
-## Other `x.py` commands
+## 其他 `x.py` 命令
 
-Here are a few other useful `x.py` commands. We'll cover some of them in detail
-in other sections:
+这是其他一些有用的`x.py`命令。我们将在其他章节中详细介绍其中一些：
 
-- Building things:
-  - `./x.py clean` – clean up the build directory (`rm -rf build` works too,
-    but then you have to rebuild LLVM)
-  - `./x.py build --stage 1` – builds everything using the stage 1 compiler,
-    not just up to `libstd`
-  - `./x.py build` – builds the stage2 compiler
-- Running tests (see the [section on running tests](../tests/running.html) for
-  more details):
-  - `./x.py test --stage 1 src/libstd` – runs the `#[test]` tests from `libstd`
-  - `./x.py test --stage 1 src/test/ui` – runs the `ui` test suite
-  - `./x.py test --stage 1 src/test/ui/const-generics` - runs all the tests in
-  the `const-generics/` subdirectory of the `ui` test suite
-  - `./x.py test --stage 1 src/test/ui/const-generics/const-types.rs` - runs
-  the single test `const-types.rs` from the `ui` test suite
+- 构建:
+  - `./x.py clean` – 清理构建目录 (`rm -rf build` 也能达到这个效果，但你必须重新构建LLVM)
+  - `./x.py build --stage 1` – 使用stage 1 编译器构建所有东西，不止是 `libstd`
+  - `./x.py build` – 构建 stage2 编译器
+- 运行测试 （见 [运行测试](../tests/running.html) 章节）:
+  - `./x.py test --stage 1 src/libstd` – 为`libstd`运行 `#[test]` 测试
+  - `./x.py test --stage 1 src/test/ui` – 运行 `ui` 测试组
+  - `./x.py test --stage 1 src/test/ui/const-generics` - 运行`ui` 测试组下的 `const-generics/` 子文件夹中的测试
+  - `./x.py test --stage 1 src/test/ui/const-generics/const-types.rs` - 运行`ui`测试组下的 `const-types.rs` 中的测试
 
-### Cleaning out build directories
+### 清理构建文件夹
 
-Sometimes you need to start fresh, but this is normally not the case.
-If you need to run this then `rustbuild` is most likely not acting right and
-you should file a bug as to what is going wrong. If you do need to clean
-everything up then you only need to run one command!
+有时您需要重新开始，但是通常情况并非如此。 如果您感到需要这么做，那么其实有可能是`rustbuild`无法正确执行，此时你应该提出一个bug来告知我们什么出错了。 如果确实需要清理所有内容，则只需运行一个命令！
 
 ```bash
 ./x.py clean
