@@ -1,14 +1,14 @@
 # Summary
 
-[About this guide](./about-this-guide.md)
+[关于](./about-this-guide.md)
 
 ---
 
-- [Part 1: Building, debugging, and contributing to Rustc](./part-1-intro.md)
+- [Part 1: [构建，调试和向`rustc`贡献代码](./part-1-intro.md)
     - [About the compiler team](./compiler-team.md)
-    - [How to Build and Run the Compiler](./building/how-to-build-and-run.md)
-        - [Suggested Workflows](./building/suggested.md)
-        - [Bootstrapping](./building/bootstrapping.md)
+    - [如何构建并运行编译器](./building/how-to-build-and-run.md)
+        - [推荐的工作流程](./building/suggested.md)
+        - [编译器自举](./building/bootstrapping.md)
         - [Distribution artifacts](./building/build-install-distribution-artifacts.md)
         - [Documenting Compiler](./building/compiler-documenting.md)
         - [ctags](./building/ctags.md)
