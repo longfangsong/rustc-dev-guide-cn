@@ -34,9 +34,9 @@
       - [LLVM ICE-breakers](ice-breaker/llvm.md)
   - [Licenses](./licenses.md)
 
-- [Part 2: High-level Compiler Architecture](./part-2-intro.md)
+- [Part 2: 高层编译器架构](./part-2-intro.md)
     - [Overview of the Compiler](./overview.md)
-    - [The compiler source code](./compiler-src.md)
+    - [编译器源码结构](./compiler-src.md)
     - [Queries: demand-driven compilation](./query.md)
         - [The Query Evaluation Model in Detail](./queries/query-evaluation-model-in-detail.md)
         - [Incremental compilation](./queries/incremental-compilation.md)

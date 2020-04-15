@@ -1,23 +1,14 @@
-# High-level overview of the compiler source
+# 编译器源代码的高层次概观
 
-## Crate structure
+## Crate 结构
 
-The main Rust repository consists of a `src` directory, under which
-there live many crates. These crates contain the sources for the
-standard library and the compiler.  This document, of course, focuses
-on the latter.
+Rust的主要存储库由`src`目录组成，该目录下有许多crate。 这些crate包含标准库和编译器的源代码。 当然，本文主要针对后者。
 
-Rustc consists of a number of crates, including `rustc_ast`,
-`rustc`, `rustc_target`, `rustc_codegen`, `rustc_driver`, and
-many more. The source for each crate can be found in a directory
-like `src/libXXX`, where `XXX` is the crate name.
+Rustc由许多crate组成，包括`rustc_ast`，`rustc`，`rustc_target`，`rustc_codegen`，`rustc_driver`等。 每个crate的源码都可以在`src/libXXX`之类的目录中找到，其中XXX是crate名称。
 
-(N.B. The names and divisions of these crates are not set in
-stone and may change over time. For the time being, we tend towards a
-finer-grained division to help with compilation time, though as incremental
-compilation improves, that may change.)
+（注：这些包装箱的名称和划分不是一成不变的，可能会随着时间而改变。目前，我们倾向于采用更细粒度的划分来帮助缩短编译时间，尽管随着增量编译的改进，这种情况可能会发生变化。）
 
-The dependency structure of these crates is roughly a diamond:
+这些板条箱的依赖关系结构大致是钻石形的：
 
 ```text
                   rustc_driver
@@ -39,99 +30,57 @@ rustc_codegen  rustc_borrowck   ...  rustc_metadata
            rustc_span  rustc_builtin_macros
 ```
 
-The `rustc_driver` crate, at the top of this lattice, is effectively
-the "main" function for the rust compiler. It doesn't have much "real
-code", but instead ties together all of the code defined in the other
-crates and defines the overall flow of execution. (As we transition
-more and more to the [query model], however, the
-"flow" of compilation is becoming less centrally defined.)
+在这个格的顶部的`rustc_driver` crate是rust编译器的"main"函数。它没有太多的“实际代码”，而是将其他crate中定义的所有代码绑定在一起，并定义了整个执行流程。 （但是，随着我们越来越多地向 [查询模型] 过渡，编译的“流程”正越来越少地集中定义。）
 
-At the other extreme, the `rustc` crate defines the common and
-pervasive data structures that all the rest of the compiler uses
-(e.g. how to represent types, traits, and the program itself). It
-also contains some amount of the compiler itself, although that is
-relatively limited.
+在另一端，`rustc` crate定义了其余所有编译器中使用的通用的数据结构（例如，如何表示类型，trait和程序本身）。它也包含一些编译器本身的代码，尽管相对有限。
 
-Finally, all the crates in the bulge in the middle define the bulk of
-the compiler – they all depend on `rustc`, so that they can make use
-of the various types defined there, and they export public routines
-that `rustc_driver` will invoke as needed (more and more, what these
-crates export are "query definitions", but those are covered later
-on).
+最后，位于中间的凸出部分中的所有crate定义了编译器的大部分内容——它们都依赖于`rustc`，因此它们可以利用在那里定义的各种类型，并且导出`rustc_driver`将根据需要调用的公共子过程（这些crate导出的内容越来越多是“查询定义”，但这些内容将在稍后介绍）。
 
-Below `rustc` lie various crates that make up the parser and error
-reporting mechanism. They are also an internal part
-of the compiler and not intended to be stable (though they do wind up
-getting used by some crates in the wild; a practice we hope to
-gradually phase out).
+在`rustc`下面的是构成parser和错误报告机制的各种crate。它们也是internal部分的一部分
+（尽管它们确实确实会被其他的一些crate使用；但我们希望逐渐淘汰这种做法）。
 
-## The main stages of compilation
+## 编译的主要阶段
 
-The Rust compiler is in a bit of transition right now. It used to be a
-purely "pass-based" compiler, where we ran a number of passes over the
-entire program, and each did a particular check of transformation. We
-are gradually replacing this pass-based code with an alternative setup
-based on on-demand **queries**. In the query-model, we work backwards,
-executing a *query* that expresses our ultimate goal (e.g. "compile
-this crate"). This query in turn may make other queries (e.g. "get me
-a list of all modules in the crate"). Those queries make other queries
-that ultimately bottom out in the base operations, like parsing the
-input, running the type-checker, and so forth. This on-demand model
-permits us to do exciting things like only do the minimal amount of
-work needed to type-check a single function. It also helps with
-incremental compilation. (For details on defining queries, check out
-the [query model].)
+Rust编译器目前处于过渡阶段。它曾经是一个纯粹的“基于pass”的编译器，我们在整个程序中运行了许多pass，每个过程都进行了特定的转换。我们正在逐步将这种基于pass的代码替换为基于按需**查询**的替代方案。在查询模型中，我们自结果往回工作，执行一个*query*来表达我们的最终目标（例如“编译此crate”）。该查询又可以进行其他查询（例如“为我提供crate中所有模块的列表”）。这些查询会进行其他查询，这些查询最终会在基本操作中触底，例如解析输入，运行类型检查器等等。这种按需模式允许我们做一些令人兴奋的事情，例如只做少量工作就能完成对单个函数的类型检查。它还有助于增量编译。 （有关定义查询的详细信息，请查看[查询模型]。）
 
-Regardless of the general setup, the basic operations that the
-compiler must perform are the same. The only thing that changes is
-whether these operations are invoked front-to-back, or on demand.  In
-order to compile a Rust crate, these are the general steps that we
-take:
+无论基于pass还是查询，编译器必须执行的基本操作都是相同的。唯一改变的是这些操作是前后调用还是按需调用。为了编译一个Rust crate，以下是我们采取的一般步骤：
 
-1. **Parsing input**
-    - this processes the `.rs` files and produces the AST
-      ("abstract syntax tree")
-    - the AST is defined in `src/librustc_ast/ast.rs`. It is intended to match the lexical
-      syntax of the Rust language quite closely.
-2. **Name resolution, macro expansion, and configuration**
-    - once parsing is complete, we process the AST recursively, resolving
-      paths and expanding macros. This same process also processes `#[cfg]`
-      nodes, and hence may strip things out of the AST as well.
-3. **Lowering to HIR**
-    - Once name resolution completes, we convert the AST into the HIR,
-      or "[high-level intermediate representation]". The HIR is defined in
-      `src/librustc_middle/hir/`; that module also includes the [lowering] code.
-    - The HIR is a lightly desugared variant of the AST. It is more processed
-      than the AST and more suitable for the analyses that follow.
-      It is **not** required to match the syntax of the Rust language.
-    - As a simple example, in the **AST**, we preserve the parentheses
-      that the user wrote, so `((1 + 2) + 3)` and `1 + 2 + 3` parse
-      into distinct trees, even though they are equivalent. In the
-      HIR, however, parentheses nodes are removed, and those two
-      expressions are represented in the same way.
-3. **Type-checking and subsequent analyses**
-    - An important step in processing the HIR is to perform type
-      checking. This process assigns types to every HIR expression,
-      for example, and also is responsible for resolving some
-      "type-dependent" paths, such as field accesses (`x.f` – we
-      can't know what field `f` is being accessed until we know the
-      type of `x`) and associated type references (`T::Item` – we
-      can't know what type `Item` is until we know what `T` is).
-    - Type checking creates "side-tables" (`TypeckTables`) that include
-      the types of expressions, the way to resolve methods, and so forth.
-    - After type-checking, we can do other analyses, such as privacy checking.
-4. **Lowering to MIR and post-processing**
-    - Once type-checking is done, we can lower the HIR into MIR ("middle IR"),
-      which is a **very** desugared version of Rust, well suited to borrowck
-      but also to certain high-level optimizations.
-5. **Translation to LLVM and LLVM optimizations**
-    - From MIR, we can produce LLVM IR.
-    - LLVM then runs its various optimizations, which produces a number of
-      `.o` files (one for each "codegen unit").
-6. **Linking**
-    - Finally, those `.o` files are linked together.
+1. **Parsing 输入**
+
+    - 这一步将处理`.rs`文件并产生AST（“抽象语法树”）
+    - AST是在`src/librustc_ast/ast.rs`中定义的。 它旨在紧密地匹配Rust语言的词汇语法。
+
+2. **名称解析，宏扩展和配置**
+    
+    - parse完成后，我们将递归处理AST，解析路径并扩展宏。这个过程也处理`#[cfg]`节点，因此也可能把东西从AST中剥离出来。
+    
+3. **降级成HIR**
+
+    - 名称解析完成后，我们将AST转换为HIR，或者说“[高级中间表示]”。 HIR在`src/librustc_middle/hir/`中定义；该模块还包含[降级]代码。
+    - HIR是AST的轻度简化版。它比AST进行了更多处理，并且更适合随后的分析。
+      它**不**需要匹配Rust语言的语法。
+    - 一个简单例子：在**AST**中，我们保留了用户编写的括号，因此，即使`((1 + 2)+ 3)`和`1 + 2 + 3`是等效的，它们也被解析为不同的抽象语法树。但是，在HIR中，括号节点被删除，并且这两个表达式以相同的方式表示。
+
+    3. **类型检查和后续分析**
+
+    - 处理HIR的重要步骤是执行类型检查。该过程为每个HIR表达式分配类型，并且还负责解析一些“类型相关”的路径，例如字段访问（`x.f` ——我们不知道正在访问哪个字段`f`，直到我们知道“x”的类型）和关联类型（`T::Item` ——在知道`T`是什么之前，我们无法知道`Item`是什么类型）。
+    - 类型检查会创建“side-tables”（`TypeckTables`），其中包括表达式的类型，方法的解析方式等。
+    - 经过类型检查后，我们可以进行其他分析，例如访问控制检查。
+
+4. **降级成MIR并进行后续处理**
+
+    - 完成类型检查后，我们可以将HIR降低为MIR（“中级IR”），这是Rust的**非常**脱糖的版本，非常适合借用检查和某些高级优化。
+
+5.  **转换为LLVM和LLVM优化**
+
+    - 从MIR，我们可以生成LLVM IR。
+    - 然后LLVM会运行其各种优化，这会产生许多 `.o`文件（每个“codegen单位”一个）。
+
+6. **链接**
+
+    - 最后，这些`.o`文件会链接在一起。
 
 
-[query model]: query.html
-[high-level intermediate representation]: hir.html
-[lowering]: lowering.html
+[查询模型]: query.html
+[高级中间表示]: hir.html
+[降级]: lowering.html

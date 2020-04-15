@@ -1,15 +1,5 @@
-# Part 2: High-Level Compiler Architecture
+# Part 2: 高层编译器架构
 
-The remaining parts of this guide discuss how the compiler works. They go
-through everything from high-level structure of the compiler to how each stage
-of compilation works. They should be friendly to both readers interested in the
-end-to-end process of compilation _and_ readers interested in learning about a
-specific system they wish to contribute to. If anything is unclear, feel free
-to file an issue on the [rustc-dev-guide
-repo](https://github.com/rust-lang/rustc-dev-guide/issues) or contact the compiler
-team, as detailed in [this chapter from Part 1](./compiler-team.md).
+本指南的其余部分讨论了编译器的工作方式。 介绍了从编译器的高级结构到编译的每个阶段如何工作的所有内容。 对于对端到端编译过程感兴趣的读者，以及学习他们希望作出贡献的特定系统的读者，这些文章都应该是比较友好的。 如果有任何不清楚的地方，请随时在[rustc-dev-guide仓库](https://github.com/rust-lang/rustc-dev-guide/issues)上提出问题，或联系编译器团队，详细见[第1部分的这一章](./ compiler-team.md)中。
 
-In this part, we will specifically look at the high-level architecture of the
-compiler. Specifically, will look at the query system, incremental compilation,
-and interning. These are three overarching design choices that impact the whole
-compiler.
+在这一部分中，我们将专门研究编译器的高级体系结构。 具体来说，将研究查询系统，增量编译和interning。 这是三个影响整个编译器的总体设计选择。
