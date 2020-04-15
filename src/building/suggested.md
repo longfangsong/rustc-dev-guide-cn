@@ -36,7 +36,7 @@
 或者您正在编辑的部分会体现在元数据上（例如MIR的定义）。
 
 **TL;DR，使用`--keep-stage 1` 时您得到的结果可能会有奇怪的行为**，
-例如，奇怪的[ICE](../ appendix / glossary.html#ice)或其他panic。 
+例如，奇怪的[ICE](../appendix/glossary.html#ice)或其他panic。 
 在这种情况下，您只需从命令中删除`--keep-stage 1`，然后重新构建。 
 这样应该就能解决问题了。
 
