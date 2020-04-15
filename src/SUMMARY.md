@@ -4,7 +4,7 @@
 
 ---
 
-- [Part 1: [构建，调试和向`rustc`贡献代码](./part-1-intro.md)
+- Part 1: [构建，调试和向`rustc`贡献代码](./part-1-intro.md)
     - [About the compiler team](./compiler-team.md)
     - [如何构建并运行编译器](./building/how-to-build-and-run.md)
         - [推荐的工作流程](./building/suggested.md)
