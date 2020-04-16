@@ -184,7 +184,8 @@ query关键字
 #### 查询结构体和查询描述
 
 对于每种类型，`rustc_queries`宏都会生成一个以查询命名的“查询结构体”。
-此结构体是描述查询的一种占位符。 每个这样的结构都要实现[`self::config::QueryConfig`] trait，该trait具有与该特定查询的键/值相关的类型。
+此结构体是描述查询的一种占位符。 每个这样的结构都要实现[`self::config::QueryConfig`][QueryConfig] trait，
+该trait具有与该特定查询的键/值相关的类型。
 基本上，生成的代码如下所示：
 
 ```rust,ignore
@@ -231,4 +232,4 @@ rustc_queries! {
 
 `rustc_queries` 宏会自动生成合适的 `impl`。
 
-[query-model]: queries/incremental-compilation-in-detail.md
+[查询模型]: queries/incremental-compilation-in-detail.md

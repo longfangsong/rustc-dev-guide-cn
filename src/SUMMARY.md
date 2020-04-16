@@ -37,7 +37,7 @@
 - [Part 2: 高层编译器架构](./part-2-intro.md)
     - [Overview of the Compiler](./overview.md)
     - [编译器源码结构](./compiler-src.md)
-    - [Queries: demand-driven compilation](./query.md)
+    - [查询：需求驱动的编译](./query.md)
         - [The Query Evaluation Model in Detail](./queries/query-evaluation-model-in-detail.md)
         - [Incremental compilation](./queries/incremental-compilation.md)
         - [Incremental compilation In Detail](./queries/incremental-compilation-in-detail.md)
