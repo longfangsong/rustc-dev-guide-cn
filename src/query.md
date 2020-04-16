@@ -1,86 +1,59 @@
-# Queries: demand-driven compilation
+# 查询: 需求驱动的编译
 
-As described in [the high-level overview of the compiler][hl], the
-Rust compiler is currently transitioning from a traditional "pass-based"
-setup to a "demand-driven" system. **The Compiler Query System is the
-key to our new demand-driven organization.** The idea is pretty
-simple. You have various queries that compute things about the input
-– for example, there is a query called `type_of(def_id)` that, given
-the [def-id] of some item, will compute the type of that item and return
-it to you.
+如[编译器高级概述][hl]中所述，Rust编译器当前正在从传统的“基于pass”的设置过渡到“需求驱动”的系统。
+**编译器查询系统是我们新的需求驱动型组织的关键。**背后的想法很简单。 
+您有各种查询来计算有关输入的内容
+– 例如，有一个名为`type_of(def_id)`的查询，给定某项的[def-id]，它将计算该项的类型并将其返回给您。
 
 [def-id]: appendix/glossary.md#def-id
 [hl]: high-level-overview.html
 
-Query execution is **memoized** – so the first time you invoke a
-query, it will go do the computation, but the next time, the result is
-returned from a hashtable. Moreover, query execution fits nicely into
-**incremental computation**; the idea is roughly that, when you do a
-query, the result **may** be returned to you by loading stored data
-from disk (but that's a separate topic we won't discuss further here).
+查询执行是“**记忆式**”的 —— 因此，第一次调用查询时，它将执行计算，但是下一次，结果将从哈希表中返回。
+此外，查询执行非常适合“**增量计算**”； 大致的想法是，当您执行查询时，**可能**会通过从磁盘加载存储的数据来将结果返回给您（但这是一个单独的主题，我们将不在此处进一步讨论）。
 
-The overall vision is that, eventually, the entire compiler
-control-flow will be query driven. There will effectively be one
-top-level query ("compile") that will run compilation on a crate; this
-will in turn demand information about that crate, starting from the
-*end*.  For example:
+总体愿景是，最终，整个编译器控制流将由查询驱动。
+实际上，将有一个顶级查询（“编译”）在一个crate上运行编译。
+这反过来会要求从最底层开始的有关该crate的信息。 例如：
 
-- This "compile" query might demand to get a list of codegen-units
-  (i.e. modules that need to be compiled by LLVM).
-- But computing the list of codegen-units would invoke some subquery
-  that returns the list of all modules defined in the Rust source.
-- That query in turn would invoke something asking for the HIR.
-- This keeps going further and further back until we wind up doing the
-  actual parsing.
+- 此“编译”查询可能需要获取代码生成单元列表（即需要由LLVM编译的模块）。
+- 但是计算代码生成单元列表将调用一些子查询，该子查询返回Rust源代码中定义的所有模块的列表。
+- 该查询会调用一些要求HIR的内容。
+- 这会越来越远，直到我们完成实际的parsing。
 
-However, that vision is not fully realized. Still, big chunks of the
-compiler (for example, generating MIR) work exactly like this.
+但是，这一愿景尚未完全实现。 尽管如此，编译器的大量代码（例如，生成MIR）仍然完全像这样工作。
 
-### Incremental Compilation in Detail
+### 增量编译的详细说明
 
-The [Incremental Compilation in Detail][query-model] chapter gives a more
-in-depth description of what queries are and how they work.
-If you intend to write a query of your own, this is a good read.
+[增量编译的详细说明][查询模型]一章提供了关于什么是查询及其工作方式的深入描述。
+如果您打算编写自己的查询，那么可以读一读这一章节。
 
-### Invoking queries
+### 调用查询
 
-To invoke a query is simple. The tcx ("type context") offers a method
-for each defined query. So, for example, to invoke the `type_of`
-query, you would just do this:
+调用查询很简单。 tcx（“类型上下文”）为每个定义的查询提供了一种方法。 因此，例如，要调用`type_of`查询，只需执行以下操作：
 
 ```rust,ignore
 let ty = tcx.type_of(some_def_id);
 ```
 
-### How the compiler executes a query
+### 编译器如何执行查询
 
-So you may be wondering what happens when you invoke a query
-method. The answer is that, for each query, the compiler maintains a
-cache – if your query has already been executed, then, the answer is
-simple: we clone the return value out of the cache and return it
-(therefore, you should try to ensure that the return types of queries
-are cheaply cloneable; insert a `Rc` if necessary).
+您可能想知道调用查询方法时会发生什么。
+答案是，对于每个查询，编译器都会维护一个缓存——如果您的查询已经执行过，那么我们将简单地从缓存中复制上一次的返回值并将其返回
+（因此，您应尝试确保查询的返回类型可以低成本的克隆；如有必要，请插入`Rc`）。
 
 #### Providers
 
-If, however, the query is *not* in the cache, then the compiler will
-try to find a suitable **provider**. A provider is a function that has
-been defined and linked into the compiler somewhere that contains the
-code to compute the result of the query.
+但是，如果查询不在缓存中，则编译器将尝试找到合适的**provider**。
+provider是已定义并链接到编译器的某个函数，其包含用于计算查询结果的代码。
 
-**Providers are defined per-crate.** The compiler maintains,
-internally, a table of providers for every crate, at least
-conceptually. Right now, there are really two sets: the providers for
-queries about the **local crate** (that is, the one being compiled)
-and providers for queries about **external crates** (that is,
-dependencies of the local crate). Note that what determines the crate
-that a query is targeting is not the *kind* of query, but the *key*.
-For example, when you invoke `tcx.type_of(def_id)`, that could be a
-local query or an external query, depending on what crate the `def_id`
-is referring to (see the [`self::keys::Key`][Key] trait for more
-information on how that works).
+**Provider是按crate定义的。**
+编译器至少在概念上在内部维护每个crate的provider表。
+目前，实际上有两组表：用于查询“**本地crate**”的provider（即正在编译的crate）和用于查询“**外部crate**”（即正在编译的crate的依赖） 的provider。
+请注意，确定查询所在的crate的类型不是查询的*类型*，而是*键*。
+例如，当您调用`tcx.type_of(def_id)`时，它可以是本地查询或外部查询，
+具体取决于`def_id`所指的crate（请参阅[`self::keys::Key`][Key] trait 以获取有关其工作原理的更多信息）。
 
-Providers always have the same signature:
+Provider 始终具有相同的签名：
 
 ```rust,ignore
 fn provider<'tcx>(
@@ -91,14 +64,12 @@ fn provider<'tcx>(
 }
 ```
 
-Providers take two arguments: the `tcx` and the query key.
-They return the result of the query.
+提供者采用两个参数：`tcx`和查询键。 并返回查询结果。
 
-####  How providers are setup
+####如何初始化provider
 
-When the tcx is created, it is given the providers by its creator using
-the [`Providers`][providers_struct] struct. This struct is generated by
-the macros here, but it is basically a big list of function pointers:
+创建tcx时，它的创建者会使用[`Providers`][providers_struct]结构为它提供provider。
+此结构是由此处的宏生成的，但基本上就是一大堆函数指针：
 
 [providers_struct]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/query/struct.Providers.html
 
@@ -109,15 +80,10 @@ struct Providers {
 }
 ```
 
-At present, we have one copy of the struct for local crates, and one
-for external crates, though the plan is that we may eventually have
-one per crate.
+目前，我们为本地crate提供一份该结构的副本，为所有外部crate提供一份该结构的副本，尽管计划是最终可能为每个crate提供一份。
 
-These `Providers` structs are ultimately created and populated by
-`librustc_driver`, but it does this by distributing the work
-throughout the other `rustc_*` crates. This is done by invoking
-various [`provide`][provide_fn] functions. These functions tend to look
-something like this:
+这些`Provider`结构最终是由`librustc_driver`创建并填充的，但是它是通过将工作分配给其他`rustc_*`crate来完成的。
+这是通过调用各种[`provide`][provide_fn]函数来完成的。 这些函数看起来像这样：
 
 [provide_fn]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/hir/fn.provide.html
 
@@ -130,13 +96,10 @@ pub fn provide(providers: &mut Providers) {
 }
 ```
 
-That is, they take an `&mut Providers` and mutate it in place. Usually
-we use the formulation above just because it looks nice, but you could
-as well do `providers.type_of = type_of`, which would be equivalent.
-(Here, `type_of` would be a top-level function, defined as we saw
-before.) So, if we want to add a provider for some other query,
-let's call it `fubar`, into the crate above, we might modify the `provide()`
-function like so:
+也就是说，他们使用一个 `&mut Providers` 并对其进行in place的修改。
+通常我们使用上面的写法只是因为它看起来比较漂亮，但是您也可以`providers.type_of = type_of`，这是等效的。
+（在这里，`type_of` 将是一个顶层函数，如我们之前看到的那样定义。）
+因此，如果我们想为其他查询添加provider，我们可以在上面的crate中将其称为“ fubar”，我们可以修改 `provide()`函数如下：
 
 ```rust,ignore
 pub fn provide(providers: &mut Providers) {
@@ -150,30 +113,25 @@ pub fn provide(providers: &mut Providers) {
 fn fubar<'tcx>(tcx: TyCtxt<'tcx>, key: DefId) -> Fubar<'tcx> { ... }
 ```
 
-N.B. Most of the `rustc_*` crates only provide **local
-providers**. Almost all **extern providers** wind up going through the
-[`rustc_metadata` crate][rustc_metadata], which loads the information
-from the crate metadata. But in some cases there are crates that
-provide queries for *both* local and external crates, in which case
-they define both a [`provide`][ext_provide] and a
-[`provide_extern`][ext_provide_extern] function that `rustc_driver`
-can invoke.
+注意大多数`rustc_*` crate仅提供**local provider**。
+几乎所有的**extern provider**都会通过[`rustc_metadata` crate][rustc_metadata] 进行处理，后者会从crate元数据中加载信息。
+但是在某些情况下，某些crate可以既提供本地也提供外部crate查询，
+在这种情况下，它们会定义`rustc_driver`可以调用的[`provide`][ext_provide]和[`provide_extern`][ext_provide_extern]函数。
 
 [rustc_metadata]: https://github.com/rust-lang/rust/tree/master/src/librustc_metadata
 [ext_provide]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_codegen_llvm/attributes/fn.provide.html
 [ext_provide_extern]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_codegen_llvm/attributes/fn.provide_extern.html
 
-### Adding a new kind of query
+### 添加一种新的查询
 
-So suppose you want to add a new kind of query, how do you do so?
-Well, defining a query takes place in two steps:
+假设您想添加一种新的查询，您该怎么做？
+定义查询分为两个步骤：
 
-1. first, you have to specify the query name and arguments; and then,
-2. you have to supply query providers where needed.
+1. 首先，必须指定查询名称和参数； 然后，
+2. 您必须在需要的地方提供查询提供程序。
 
-To specify the query name and arguments, you simply add an entry to
-the big macro invocation in
-[`src/librustc_middle/query/mod.rs`][query-mod], which looks something like:
+要指定查询名称和参数，您只需将条目添加到
+[`src/librustc_middle/query/mod.rs`][query-mod]中的大型宏调用之中，类似于：
 
 [query-mod]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/query/index.html
 
@@ -190,58 +148,44 @@ rustc_queries! {
 }
 ```
 
-Queries are grouped into categories (`Other`, `Codegen`, `TypeChecking`, etc.).
-Each group contains one or more queries. Each query definition is broken up like
-this:
+查询分为几类（`Other`，`Codegn`，`TypeChecking`等）。
+每组包含一个或多个查询。 每个查询的定义都是这样分解的：
 
 ```rust,ignore
 query type_of(key: DefId) -> Ty<'tcx> { ... }
 ^^    ^^^^^^^      ^^^^^     ^^^^^^^^   ^^^
 |     |            |         |          |
-|     |            |         |          query modifiers
-|     |            |         result type of query
-|     |            query key type
-|     name of query
-query keyword
+|     |            |         |          查询修饰符
+|     |            |         查询的结果类型
+|     |            查询的 key 的类型
+|     查询名称
+query关键字
 ```
 
-Let's go over them one by one:
+让我们一一介绍它们：
 
-- **Query keyword:** indicates a start of a query definition.
-- **Name of query:** the name of the query method
-  (`tcx.type_of(..)`). Also used as the name of a struct
-  (`ty::queries::type_of`) that will be generated to represent
-  this query.
-- **Query key type:** the type of the argument to this query.
-  This type must implement the [`ty::query::keys::Key`][Key] trait, which
-  defines (for example) how to map it to a crate, and so forth.
-- **Result type of query:** the type produced by this query. This type
-  should (a) not use `RefCell` or other interior mutability and (b) be
-  cheaply cloneable. Interning or using `Rc` or `Arc` is recommended for
-  non-trivial data types.
-  - The one exception to those rules is the `ty::steal::Steal` type,
-    which is used to cheaply modify MIR in place. See the definition
-    of `Steal` for more details. New uses of `Steal` should **not** be
-    added without alerting `@rust-lang/compiler`.
-- **Query modifiers:** various flags and options that customize how the
-  query is processed.
+- **query关键字：** 表示查询定义的开始。
+- **查询名称：**查询方法的名称（`tcx.type_of(..)`）。也用作将生成以表示此查询的结构的名称（`ty::queries::type_of`）。
+- **查询的 key 的类型：**此查询的参数类型。此类型必须实现[`ty::query::keys::Key`][Key] trait，该trait定义了（例如）如何将其映射到crate，等等。
+- **查询的结果类型：** 此查询产生的类型。
+这种类型应该（a）不使用`RefCell`或其他内部可变性模式，并且
+（b）可以廉价地克隆。对于非平凡的数据类型，建议使用Interning方法或使用`Rc`或`Arc`。
+  - 一个例外是`ty::steal::Steal`类型，该类型用于廉价地修改MIR。
+有关更多详细信息，请参见`Steal`的定义。不应该在不警告`@rust-lang/compiler`的情况下添加对`Steal`的新的使用。
+- **查询修饰符：** 各种标志和选项，可自定义查询的处理方式。
 
 [Key]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/query/keys/trait.Key.html
 
-So, to add a query:
+因此，要添加查询：
 
-- Add an entry to `rustc_queries!` using the format above.
-- Link the provider by modifying the appropriate `provide` method;
-  or add a new one if needed and ensure that `rustc_driver` is invoking it.
+- 使用上述格式在`rustc_queries!`中添加一个条目。
+- 通过修改适当的`provide`方法链接provider； 或根据需要添加一个新文件，并确保`rustc_driver`会调用它。
 
-#### Query structs and descriptions
+#### 查询结构体和查询描述
 
-For each kind, the `rustc_queries` macro will generate a "query struct"
-named after the query. This struct is a kind of a place-holder
-describing the query. Each such struct implements the
-[`self::config::QueryConfig`][QueryConfig] trait, which has associated types for the
-key/value of that particular query. Basically the code generated looks something
-like this:
+对于每种类型，`rustc_queries`宏都会生成一个以查询命名的“查询结构体”。
+此结构体是描述查询的一种占位符。 每个这样的结构都要实现[`self::config::QueryConfig`] trait，该trait具有与该特定查询的键/值相关的类型。
+基本上，生成的代码如下所示：
 
 ```rust,ignore
 // Dummy struct representing a particular kind of query:
@@ -256,13 +200,10 @@ impl<'tcx> QueryConfig for type_of<'tcx> {
 }
 ```
 
-There is an additional trait that you may wish to implement called
-[`self::config::QueryDescription`][QueryDescription]. This trait is
-used during cycle errors to give a "human readable" name for the query,
-so that we can summarize what was happening when the cycle occurred.
-Implementing this trait is optional if the query key is `DefId`, but
-if you *don't* implement it, you get a pretty generic error ("processing `foo`...").
-You can put new impls into the `config` module. They look something like this:
+您可能希望实现一个额外的trait，称为[`self::config::QueryDescription`][QueryDescription]。
+这个trait是用于在发生cycle错误时使用，为查询提供一个“人类可读”的名称，以便我们可以探明在cycle发生的情况。
+如果查询键是`DefId`，则实现此特征是可选的，但是如果*不*实现它，则会得到一个相当普通的错误（“processing `foo` ...”）。
+您可以将新的impl放入`config`模块中。 他们看起来像这样：
 
 [QueryConfig]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/query/trait.QueryConfig.html
 [QueryDescription]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_query_system/query/config/trait.QueryDescription.html
@@ -275,7 +216,7 @@ impl<'tcx> QueryDescription for queries::type_of<'tcx> {
 }
 ```
 
-Another option is to add `desc` modifier:
+另一个选择是添加`desc`修饰符：
 
 ```rust,ignore
 rustc_queries! {
@@ -288,6 +229,6 @@ rustc_queries! {
 }
 ```
 
-`rustc_queries` macro will generate an appropriate `impl` automatically.
+`rustc_queries` 宏会自动生成合适的 `impl`。
 
 [query-model]: queries/incremental-compilation-in-detail.md
