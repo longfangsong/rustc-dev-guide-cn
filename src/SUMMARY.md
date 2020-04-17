@@ -38,7 +38,7 @@
     - [Overview of the Compiler](./overview.md)
     - [编译器源码结构](./compiler-src.md)
     - [查询：需求驱动的编译](./query.md)
-        - [The Query Evaluation Model in Detail](./queries/query-evaluation-model-in-detail.md)
+        - [查询求值模型的详细介绍](./queries/query-evaluation-model-in-detail.md)
         - [Incremental compilation](./queries/incremental-compilation.md)
         - [Incremental compilation In Detail](./queries/incremental-compilation-in-detail.md)
         - [Debugging and Testing](./incrcomp-debugging.md)

@@ -1,103 +1,60 @@
 
 
-# The Query Evaluation Model in Detail
+# 查询求值模型的详细介绍
 
-This chapter provides a deeper dive into the abstract model queries are built on.
-It does not go into implementation details but tries to explain
-the underlying logic. The examples here, therefore, have been stripped down and
-simplified and don't directly reflect the compilers internal APIs.
+本章将更深入地探讨建立在查询上的抽象模型。
+它不涉及实现细节，而是尝试解释底层逻辑。 因此，这里的示例已经精简和简化，没有直接反映出编译器的内部API。
 
-## What is a query?
+## 查询是什么
 
-Abstractly we view the compiler's knowledge about a given crate as a "database"
-and queries are the way of asking the compiler questions about it, i.e.
-we "query" the compiler's "database" for facts.
+抽象地，我们将编译器关于给定crate的知识视为“数据库”，而查询是向编译器询问有关该问题的方式，即我们“查询”编译器的“数据库”以获取事实。
 
-However, there's something special to this compiler database: It starts out empty
-and is filled on-demand when queries are executed. Consequently, a query must
-know how to compute its result if the database does not contain it yet. For
-doing so, it can access other queries and certain input values that the database
-is pre-filled with on creation.
+但是，此编译器数据库有一些特殊之处：它开始为空，并在执行查询时按需填充。因此，如果数据库尚不包含查询，则查询必须知道如何计算其结果。为此，它可以访问创建数据库时预先填充的其他查询和某些输入值。
 
-A query thus consists of the following things:
+因此，查询包含以下内容：
 
- - A name that identifies the query
- - A "key" that specifies what we want to look up
- - A result type that specifies what kind of result it yields
- - A "provider" which is a function that specifies how the result is to be
-   computed if it isn't already present in the database.
+ - 标识查询的名称
+ - 一个“键”，指定我们要查找的内容
+ - 一种结果类型，用于指定产生什么样的结果
+ - 一个 "provider"，它是一个函数，用于指定如果数据库中尚不存在结果，该如何计算结果。
 
-As an example, the name of the `type_of` query is `type_of`, its query key is a
-`DefId` identifying the item we want to know the type of, the result type is
-`Ty<'tcx>`, and the provider is a function that, given the query key and access
-to the rest of the database, can compute the type of the item identified by the
-key.
+例如，`type_of`查询的名称为`type_of`，其查询键为`DefId`，用于标识我们要了解其类型的项目，
+结果类型为`Ty<'tcx>`，并且provider是一个函数，只要向其提供查询键，它就能访问数据库其余部分，计算出该键标识的项的类型。
 
-So in some sense a query is just a function that maps the query key to the
-corresponding result. However, we have to apply some restrictions in order for
-this to be sound:
+因此，从某种意义上说，查询只是将查询关键字映射到相应结果的函数。但是，为了使其听起来合理，我们必须应用一些限制：
 
- - The key and result must be immutable values.
- - The provider function must be a pure function, that is, for the same key it
-   must always yield the same result.
- - The only parameters a provider function takes are the key and a reference to
-   the "query context" (which provides access to rest of the "database").
+ - 键和结果必须是不可变的值。
+ - provider函数必须是纯函数，即对于相同的键，它必须始终产生相同的结果。
+ - provider函数的参数是键和对“查询上下文”的引用（提供对“数据库”其余部分的访问）。
 
-The database is built up lazily by invoking queries. The query providers will
-invoke other queries, for which the result is either already cached or computed
-by calling another query provider. These query provider invocations
-conceptually form a directed acyclic graph (DAG) at the leaves of which are
-input values that are already known when the query context is created.
+该数据库是通过“懒惰地”调用查询构建的。
+provider将调用其他查询，其结果或者已被缓存或者要通过调用另一个provider进行计算。
+这些provider调用从概念上形成有向无环图（DAG），在其叶上是创建查询上下文时已知的输入值。
 
+## 缓存/记忆化
 
+查询调用的结果是“记忆化”的，这意味着查询上下文会将结果缓存在内部表中，并且当再次使用相同的查询键调用查询时，将从缓存中返回结果，而不是再次运行provider。
 
-## Caching/Memoization
+这种缓存对于提高查询引擎的效率至关重要。 没有记忆化，系统将仍然是健全的（也就是说，它将产生相同的结果），但是相同的计算将一遍又一遍地进行。
 
-Results of query invocations are "memoized" which means that the query context
-will cache the result in an internal table and, when the query is invoked with
-the same query key again, will return the result from the cache instead of
-running the provider again.
+记忆化是查询提供程序必须为纯函数的主要原因之一。 如果调用提供程序函数可能对每个调用产生不同的结果（因为它访问某些全局可变状态），则我们将无法记住结果。
 
-This caching is crucial for making the query engine efficient. Without
-memoization the system would still be sound (that is, it would yield the same
-results) but the same computations would be done over and over again.
+## 输入数据
 
-Memoization is one of the main reasons why query providers have to be pure
-functions. If calling a provider function could yield different results for
-each invocation (because it accesses some global mutable state) then we could
-not memoize the result.
+当查询上下文刚刚被创建出来时，它是空的：未执行任何查询，也不可能缓存任何结果。
+但是上下文已经提供了对“输入”数据的访问权限，即在创建上下文之前计算的不可变数据段，并且查询可以访问以执行其计算。
+当前，此输入数据主要由HIR map，上游crate元数据和调用编译器的命令行选项组成。
+将来，输入将仅包含命令行选项和源文件列表——HIR map本身将由处理这些源文件的查询提供。
 
+没有输入，查询就没有任何用处，没有任何东西可以计算结果（请记住，查询provider只能访问其他查询和上下文，而不能访问任何其他外部状态或信息）。
 
+对于查询provider，输入数据和其他查询的结果看起来完全相同：它只是告诉上下文“给我X的值”。因为输入数据是不可变的，所以提供者可以在不同的查询调用之间依赖于输入数据，就像查询结果一样。
 
-## Input data
+## 一些查询的执行过程示例
 
-When the query context is created, it is still empty: No queries have been
-executed, no results are cached. But the context already provides access to
-"input" data, i.e. pieces of immutable data that were computed before the
-context was created and that queries can access to do their computations.
-Currently this input data consists mainly of the HIR map, upstream crate
-metadata, and the command-line
-options the compiler was invoked with. In the future, inputs will just consist
-of command-line options and a list of source files -- the HIR map will itself
-be provided by a query which processes these source files.
-
-Without inputs, queries would live in a void without anything to compute their
-result from (remember, query providers only have access to other queries and
-the context but not any other outside state or information).
-
-For a query provider, input data and results of other queries look exactly the
-same: It just tells the context "give me the value of X". Because input data
-is immutable, the provider can rely on it being the same across
-different query invocations, just as is the case for query results.
-
-
-
-## An example execution trace of some queries
-
-How does this DAG of query invocations come into existence? At some point
-the compiler driver will create the, as yet empty, query context. It will then,
-from outside of the query system, invoke the queries it needs to perform its
-task. This looks something like the following:
+这个查询调用DAG是如何形成的？ 
+在某个时候，编译器驱动程序将创建暂时为空的查询上下文。 然后，它将从查询系统外部调用执行其任务所需的查询。
+看起来类似于以下内容：
 
 ```rust,ignore
 fn compile_crate() {
@@ -112,7 +69,7 @@ fn compile_crate() {
 }
 ```
 
-The `type_check_crate` query provider would look something like the following:
+ `type_check_crate` 查询 provider 看起来像这样：
 
 ```rust,ignore
 fn type_check_crate_provider(tcx, _key: ()) {
@@ -124,12 +81,8 @@ fn type_check_crate_provider(tcx, _key: ()) {
 }
 ```
 
-We see that the `type_check_crate` query accesses input data
-(`tcx.hir_map.list_of_items()`) and invokes other queries
-(`type_check_item`). The `type_check_item`
-invocations will themselves access input data and/or invoke other queries,
-so that in the end the DAG of query invocations will be built up backwards
-from the node that was initially executed:
+我们看到，`type_check_crate`查询访问输入数据（`tcx.hir_map.list_of_items()`）并调用其他查询（ `type_check_item`）。
+`type_check_item`调用本身将访问输入数据和/或调用其他查询，因此最后，查询调用的DAG将从最初执行的节点向后构建：
 
 ```ignore
          (2)                                                 (1)
@@ -146,21 +99,15 @@ from the node that was initially executed:
 // (x) denotes invocation order
 ```
 
-We also see that often a query result can be read from the cache:
-`type_of(bar)` was computed for `type_check_item(foo)` so when
-`type_check_item(bar)` needs it, it is already in the cache.
+我们还看到通常可以从缓存中读取查询结果：`type_check_item(foo)`调用时已经计算出了`type_of(bar)`，
+因此当`type_check_item(bar)`需要它时，它已经在缓存中了。
 
-Query results stay cached in the query context as long as the context lives.
-So if the compiler driver invoked another query later on, the above graph
-would still exist and already executed queries would not have to be re-done.
+只要上下文存在，查询结果就会保留在查询上下文中。
+因此，如果编译器驱动程序稍后调用另一个查询，则上面的图将仍然存在，并且已经执行的查询将不必重新执行。
 
+## 环
 
-
-## Cycles
-
-Earlier we stated that query invocations form a DAG. However, it would be easy
-to form a cyclic graph by, for example, having a query provider like the
-following:
+前面我们曾说过，查询调用构成了DAG。 但是，类似如下查询的provider很容易导致形成有环图：
 
 ```rust,ignore
 fn cyclic_query_provider(tcx, key) -> u32 {
@@ -169,70 +116,41 @@ fn cyclic_query_provider(tcx, key) -> u32 {
 }
 ```
 
-Since query providers are regular functions, this would behave much as expected:
-Evaluation would get stuck in an infinite recursion. A query like this would not
-be very useful either. However, sometimes certain kinds of invalid user input
-can result in queries being called in a cyclic way. The query engine includes
-a check for cyclic invocations and, because cycles are an irrecoverable error,
-will abort execution with a "cycle error" messages that tries to be human
-readable.
-
-At some point the compiler had a notion of "cycle recovery", that is, one could
-"try" to execute a query and if it ended up causing a cycle, proceed in some
-other fashion. However, this was later removed because it is not entirely
-clear what the theoretical consequences of this are, especially regarding
-incremental compilation.
+由于查询provider是常规函数，因此其行为将与预期的一样：求值将陷入无限递归中。
+这样的查询也不可能会有用。
+但是，有时某些类型的无效用户输入可能导致以循环方式调用查询。
+查询引擎包括对循环调用的检查，并且由于循环是不可恢复的错误，因此将中止执行，并显示尽可能可读的“cycle error”消息。
 
 
-## "Steal" Queries
+## "窃取" 查询
 
-Some queries have their result wrapped in a `Steal<T>` struct. These queries
-behave exactly the same as regular with one exception: Their result is expected
-to be "stolen" out of the cache at some point, meaning some other part of the
-program is taking ownership of it and the result cannot be accessed anymore.
+一些查询的结果包装在`Steal<T>`结构中。
+这些查询的行为与常规查询完全相同，但有一个例外：它们的结果有时是从缓存中“窃取”来的，这意味着程序的其他部分正在拥有该所有权，并且该结果无法再访问。
 
-This stealing mechanism exists purely as a performance optimization because some
-result values are too costly to clone (e.g. the MIR of a function). It seems
-like result stealing would violate the condition that query results must be
-immutable (after all we are moving the result value out of the cache) but it is
-OK as long as the mutation is not observable. This is achieved by two things:
+这种窃取机制纯粹是作为性能优化而存在的，因为某些结果值的克隆成本太高（例如，函数的MIR）。
+结果窃取似乎违反了查询结果必须是不可变的条件（毕竟，我们将结果值移出了缓存），但是只要无法观察到该突变就可以。这可以通过两件事来实现：
 
-- Before a result is stolen, we make sure to eagerly run all queries that
-  might ever need to read that result. This has to be done manually by calling
-  those queries.
-- Whenever a query tries to access a stolen result, we make the compiler ICE so
-  that such a condition cannot go unnoticed.
+- 在结果被窃取之前，我们确保eager地运行所有可能需要读取该结果的查询。必须通过手动调用这些查询来完成此操作。
+- 每当查询尝试访问被窃取的结果时，我们都会使编译器ICE，以使这种情况不会被忽略。
 
-This is not an ideal setup because of the manual intervention needed, so it
-should be used sparingly and only when it is well known which queries might
-access a given result. In practice, however, stealing has not turned out to be
-much of a maintenance burden.
+由于需要手动干预，因此这不是理想的工作方式，因此应谨慎使用它，并且仅在众所周知哪些查询可以访问给定结果的情况下使用。
+然而，实际上，窃取并没有成为很大的维护负担。
 
-To summarize: "Steal queries" break some of the rules in a controlled way.
-There are checks in place that make sure that nothing can go silently wrong.
+总结一下：“窃取查询”以受控方式破坏了一些规则。但是有检查确保不会悄悄地出错。
 
 
-## Parallel Query Execution
+## 查询的并行执行
 
-The query model has some properties that make it actually feasible to evaluate
-multiple queries in parallel without too much of an effort:
+查询模型具有一些属性，这些属性使得并行求值多个查询实际上可行，而无需花费太多精力：
 
-- All data a query provider can access is accessed via the query context, so
-  the query context can take care of synchronizing access.
-- Query results are required to be immutable so they can safely be used by
-  different threads concurrently.
+- 查询provider可以访问的所有数据都是通过查询上下文访问的，因此查询上下文可以确保同步访问。
+- 查询结果必须是不可变的，以便不同线程可以同时安全地使用它们。
 
-The nightly compiler already implements parallel query evaluation as follows:
+nightly编译器已经实现了并行查询求值，如下所示：
 
-When a query `foo` is evaluated, the cache table for `foo` is locked.
+当求值查询`foo`时，`foo`的缓存表被锁定。
 
-- If there already is a result, we can clone it, release the lock and
-  we are done.
-- If there is no cache entry and no other active query invocation computing the
-  same result, we mark the key as being "in progress", release the lock and
-  start evaluating.
-- If there *is* another query invocation for the same key in progress, we
-  release the lock, and just block the thread until the other invocation has
-  computed the result we are waiting for. This cannot deadlock because, as
-  mentioned before, query invocations form a DAG. Some thread will always make
-  progress.
+- 如果已经有结果，我们可以克隆它，释放锁，然后就这样完成了查询。
+- 如果没有缓存条目并且没有其他活动中的查询调用正在计算这一结果，则将该键标记为“进行中”，释放锁并开始求值。
+- 如果正在对同一个键进行另一个查询调用，我们将释放锁，并阻塞线程，直到另一个调用计算出我们正在等待的结果。
+  这不会造成死锁，因为如前所述，查询调用形成了DAG。总会有一些线程可以进展。
