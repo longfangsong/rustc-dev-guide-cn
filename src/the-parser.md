@@ -1,54 +1,37 @@
-# Lexing and Parsing
+# 词法分析与语法分析
 
-> The parser and lexer are currently undergoing a lot of refactoring, so parts
-> of this chapter may be out of date.
+> 词法分析和语法分析器当前正在进行大量重构，因此本章的某些部分可能已过时。
 
-The very first thing the compiler does is take the program (in Unicode
-characters) and turn it into something the compiler can work with more
-conveniently than strings. This happens in two stages: Lexing and Parsing.
+编译器要做的第一件事就是将程序（一堆Unicode字符）转换为比字符串更方便编译器使用的表示形式。 这发生在两个阶段：词法分析和语法分析。
 
-Lexing takes strings and turns them into streams of tokens. For example,
-`a.b + c` would be turned into the tokens `a`, `.`, `b`, `+`, and `c`.
-The lexer lives in [`librustc_lexer`][lexer].
+词法分析接收字符串并将其转换为token流。
+例如，`a.b + c`将被转换为token `a`，`.`，`b`，`+`和`c`。 该词法分析器位于[`librustc_lexer`][lexer]中。
 
 [lexer]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_lexer/index.html
 
-Parsing then takes streams of tokens and turns them into a structured
-form which is easier for the compiler to work with, usually called an [*Abstract
-Syntax Tree*][ast] (AST). An AST mirrors the structure of a Rust program in memory,
-using a `Span` to link a particular AST node back to its source text.
+然后，文法分析将获取到的token流并将其转换为一种通常称为[*抽象语法树*][ast]（AST）的结构化形式，便于编译器使用。
+AST使用`Span`将特定的AST节点链接回其源文本，从而镜像内存中Rust程序的结构。
 
-The AST is defined in [`librustc_ast`][librustc_ast], along with some definitions for
-tokens and token streams, data structures/traits for mutating ASTs, and shared
-definitions for other AST-related parts of the compiler (like the lexer and
-macro-expansion).
+AST是在[`librustc_ast`][librustc_ast]中定义的，
+其中包括token和token流的一些定义、用于修改AST的数据结构/trait、以及编译器其他与AST相关的部分（如词法分析器和宏展开）。
 
-The parser is defined in [`librustc_parse`][librustc_parse], along with a
-high-level interface to the lexer and some validation routines that run after
-macro expansion. In particular, the [`rustc_parse::parser`][parser] contains
-the parser implementation.
+文法分析器在[`librustc_parse`][librustc_parse]中定义，这个crate中也包含了词法分析器的高级接口以及一些在宏扩展后运行的验证例程。
+特别的，[`rustc_parse::parser`][parser]包含文法分析器实现。
 
-The main entrypoint to the parser is via the various `parse_*` functions in the
-[parser][parser]. They let you do things like turn a [`SourceFile`][sourcefile]
-(e.g. the source in a single file) into a token stream, create a parser from
-the token stream, and then execute the parser to get a `Crate` (the root AST
-node).
+文法分析器的主要入口点是通过 [parser][parser] 中的各种`parse_*`函数。
+它们使您可以执行以下操作，例如将[`SourceFile`][sourcefile]（例如，单个文件中的源）转换为token流，
+从token流创建文法分析器，然后执行文法分析器以获取`Crate`（ AST根节点）。
 
-To minimise the amount of copying that is done, both the `StringReader` and
-`Parser` have lifetimes which bind them to the parent `ParseSess`. This contains
-all the information needed while parsing, as well as the `SourceMap` itself.
+为了最大程度地减少复制的数量，`StringReader`和`Parser`都具有将其绑定到父`ParseSess`的生命周期。它包含文法分析时所需的所有信息以及`SourceMap`本身。
 
-## More on Lexical Analysis
+## 更多关于词法分析的信息
 
-Code for lexical analysis is split between two crates:
+词法分析代码分为两个部分：
 
-- `rustc_lexer` crate is responsible for breaking a `&str` into chunks
-  constituting tokens. Although it is popular to implement lexers as generated
-  finite state machines, the lexer in `rustc_lexer` is hand-written.
-
-- [`StringReader`] from [`librustc_ast`][librustc_ast] integrates `rustc_lexer` with `rustc`
-  specific data structures. Specifically, it adds `Span` information to tokens
-  returned by `rustc_lexer` and interns identifiers.
+- `rustc_lexer` crate负责将`&str`分成组成token。
+尽管普遍的做法是使用程序生成基于有限状态机的词法分析器，但`rustc_lexer`中的词法分析器是手写的。
+- 来自[`librustc_ast`][librustc_ast] 的[`StringReader`]将`rustc_lexer`与`rustc`特定的数据结构集成在一起。
+具体来说，它将`Span`信息添加到`rustc_lexer`返回的token和内部标识符中。
 
 [librustc_ast]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_ast/index.html
 [rustc_errors]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_errors/index.html

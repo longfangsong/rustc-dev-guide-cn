@@ -1,8 +1,8 @@
-# Syntax and the AST
+# 符号与AST
 
-Working directly with source code is very inconvenient and error-prone. Thus,
-before we do anything else, we convert raw source code into an AST. It turns
-out that doing even this involves a lot of work, including lexing, parsing,
-macro expansion, name resolution, conditional compilation, feature-gate
-checking, and validation of the AST. In this chapter, we take a look at all
-of these steps.
+直接使用源代码非常不方便且容易出错。 因此，在执行其他任何操作之前，我们将原始源代码转换为AST。
+
+事实证明，做到这一点还涉及很多工作，包括词法分析，语法分析，宏展开，名称解析，条件编译，特性门控检查和AST验证。 
+
+在本章中，我们将介绍所有这些步骤。
+

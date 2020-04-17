@@ -1,8 +1,5 @@
-# Part 3: Source Code Representations
+# Part 3: 源代码的不同表示
 
-This part describes the process of taking raw source code from the user and
-transforming it into various forms that the compiler can work with easily.
-These are called intermediate representations.
+这部分描述了从用户那里获取原始源代码并将其转换为编译器可以轻松使用的各种形式的过程。 这些称为中间表示。
 
-This process starts with compiler understanding what the user has asked for:
-parsing the command line arguments given and determining what it is to compile.
+此过程首先从编译器了解用户的要求开始：分析给定的命令行参数并确定要编译的内容。
