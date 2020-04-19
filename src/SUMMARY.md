@@ -61,7 +61,7 @@
     - [HIR （高层IR）](./hir.md)
         - [将AST lower 到 HIR](./lowering.md)
         - [Debugging](./hir-debugging.md)
-    - [The MIR (Mid-level IR)](./mir/index.md)
+    - [MIR （中层IR）](./mir/index.md)
         - [HAIR and MIR construction](./mir/construction.md)
         - [MIR visitor and traversal](./mir/visitor.md)
         - [MIR passes: getting the MIR for a function](./mir/passes.md)

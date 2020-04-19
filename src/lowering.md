@@ -2,11 +2,6 @@
 
 Lowering步骤将AST转换为[HIR](hir.html)。 这意味着许多与类型分析或类似的语法无关分析无关的代码在这一阶段被删除了。 这种结构的例子包括但不限于
 
-The lowering step converts AST to [HIR](hir.html).
-This means many structures are removed if they are irrelevant
-for type analysis or similar syntax agnostic analyses. Examples
-of such structures include but are not limited to
-
 * 括号
     * 无需替换，直接删除，树结构本身就能明确运算顺序
 * `for` 循环和 `while (let)` 循环

@@ -1,61 +1,42 @@
-# The MIR (Mid-level IR)
+# MIR （中层IR）
 
-MIR is Rust's _Mid-level Intermediate Representation_. It is
-constructed from [HIR](../hir.html). MIR was introduced in
-[RFC 1211]. It is a radically simplified form of Rust that is used for
-certain flow-sensitive safety checks – notably the borrow checker! –
-and also for optimization and code generation.
-
-If you'd like a very high-level introduction to MIR, as well as some
-of the compiler concepts that it relies on (such as control-flow
-graphs and desugaring), you may enjoy the
-[rust-lang blog post that introduced MIR][blog].
+MIR 是 Rust's _中层中间表示_. 
+MIR是在[RFC 1211]中引入的。 它是Rust的一种非常简化的形式，用于某些对控制流敏感的安全检查——尤其是是借用检查器！ ——以及优化和代码生成。
+如果您想阅读对MIR非常层次的介绍，以及它所依赖的一些编译器概念（例如控制流图和简化），则可以欣赏[介绍MIR的rust-lang博客文章 ][blog]。
 
 [blog]: https://blog.rust-lang.org/2016/04/19/MIR.html
 
-## Introduction to MIR
+## 介绍 MIR
 
-MIR is defined in the [`src/librustc_middle/mir/`][mir] module, but much of the code
-that manipulates it is found in [`src/librustc_mir`][mirmanip].
+MIR 在 [`src/librustc_middle/mir/`][mir] 模块中定义，但许多操纵它的代码都在 [`src/librustc_mir`][mirmanip].
 
 [RFC 1211]: https://rust-lang.github.io/rfcs/1211-mir.html
 
-Some of the key characteristics of MIR are:
+MIR的一些核心特征有：
 
-- It is based on a [control-flow graph][cfg].
-- It does not have nested expressions.
-- All types in MIR are fully explicit.
+- 它基于 [控制流图][cfg]。
+- 他没有嵌套的表达式。
+- MIR中的所有类型都是完全显式的。
 
 [cfg]: ../appendix/background.html#cfg
 
-## Key MIR vocabulary
+## MIR核心词汇
 
-This section introduces the key concepts of MIR, summarized here:
+本节介绍了MIR的关键概念，总结如下：
 
-- **Basic blocks**: units of the control-flow graph, consisting of:
-  - **statements:** actions with one successor
-  - **terminators:** actions with potentially multiple successors; always at
-    the end of a block
-  - (if you're not familiar with the term *basic block*, see the [background
-    chapter][cfg])
-- **Locals:** Memory locations allocated on the stack (conceptually, at
-  least), such as function arguments, local variables, and
-  temporaries. These are identified by an index, written with a
-  leading underscore, like `_1`. There is also a special "local"
-  (`_0`) allocated to store the return value.
-- **Places:** expressions that identify a location in memory, like `_1` or
-  `_1.f`.
-- **Rvalues:** expressions that produce a value. The "R" stands for
-  the fact that these are the "right-hand side" of an assignment.
-  - **Operands:** the arguments to an rvalue, which can either be a
-    constant (like `22`) or a place (like `_1`).
+- **基本块**： 控制流图的单元，包含了：
+  - **语句：** 有一个后继的动作
+  - **终结句：** 可能有多个后继的动作，永远在块的末尾
+  - （如果你对术语*基本块*不熟悉，见 [背景知识][cfg])
+- **本地变量：** 在堆栈上分配的内存位置（至少在概念上是这样），例如函数参数，局部变量和临时变量。
+这些由索引标识，并带有前导下划线，例如`_1`。 还有一个特殊的“本地变量”（`_0`）分配来存储返回值。
+- **位置：** 用来表达内存中一个位置的表达式，像`_1` 或者`_1.f`.
+- **右值：** 生成一个值的表达式，“右”意味着这些表达式一般只会出现在赋值语句的右侧。
+  - **操作数：** 右值表达式的参数，可以是一个常数（如`22`）或者一个位置（如`_1`）。
 
-You can get a feeling for how MIR is structed by translating simple
-programs into MIR and reading the pretty printed output. In fact, the
-playground makes this easy, since it supplies a MIR button that will
-show you the MIR for your program. Try putting this program into play
-(or [clicking on this link][sample-play]), and then clicking the "MIR"
-button on the top:
+通过将简单的程序转换为MIR并读取pretty print的输出，您可以了解MIR的结构。
+实际上，playgroud使得此操作变得容易，因为它提供了一个MIR按钮，该按钮将向您显示程序的MIR。
+尝试运行此程序（或[单击此链接][sample-play]），然后单击顶部的“ MIR”按钮：
 
 [sample-play]: https://play.rust-lang.org/?gist=30074856e62e74e91f06abd19bd72ece&version=stable
 
@@ -67,7 +48,7 @@ fn main() {
 }
 ```
 
-You should see something like:
+你会看见：
 
 ```mir
 // WARNING: This output format is intended for human consumers only
@@ -77,10 +58,9 @@ fn main() -> () {
 }
 ```
 
-This is the MIR format for the `main` function.
+这是 `main` 函数的MIR格式。
 
-**Variable declarations.** If we drill in a bit, we'll see it begins
-with a bunch of variable declarations. They look like this:
+**变量定义** 如果我们深入一些，我们可以看到函数以一些变量定义开始，他们看起来像这样：
 
 ```mir
 let mut _0: ();                      // return place
@@ -91,33 +71,24 @@ let mut _4: ();
 let mut _5: &mut std::vec::Vec<i32>;
 ```
 
-You can see that variables in MIR don't have names, they have indices,
-like `_0` or `_1`.  We also intermingle the user's variables (e.g.,
-`_1`) with temporary values (e.g., `_2` or `_3`). You can tell apart
-user-defined variables because they have debuginfo associated to them (see below).
+您会看到MIR中的变量没有名称，而是具有索引，例如`_0`或`_1`。
+我们还将用户变量（例如`_1`）与临时值（例如`_2`或`_3`）混为一谈。
+但您还是可以区分出哪些是用户定义的变量，因为它们具有与之相关联的调试信息（请参见下文）。
 
-**User variable debuginfo.** Below the variable declarations, we find the only
-hint that `_1` represents a user variable:
+**用户变量的调试信息** 在变量定义下面，我们能发现唯一能提醒我们 `_1` 代表的是一个用户变量的提示：
 ```mir
 scope 1 {
     debug vec => _1;                 // in scope 1 at src/main.rs:2:9: 2:16
 }
 ```
-Each `debug <Name> => <Place>;` annotation describes a named user variable,
-and where (i.e. the place) a debugger can find the data of that variable.
-Here the mapping is trivial, but optimizations may complicate the place,
-or lead to multiple user variables sharing the same place.
-Additionally, closure captures are described using the same system, and so
-they're complicated even without optimizations, e.g.: `debug x => (*((*_1).0: &T));`.
+每个 `debug <Name> => <Place>;` 注解都描述了一个用户定义变量与调试器在哪里（即位置）能找到这个变量对应的数据。
+这里这个映射非常简单，但优化可能会使得这个位置的使用情况复杂化，也可能会让多个用户变量共享同一个位置。
+另外，闭包的捕获也是用同一套系统描述的，这种情况下，即使不进行优化，也已经很复杂了。如：`debug x => (*((*_1).0: &T));`。
 
-The "scope" blocks (e.g., `scope 1 { .. }`) describe the lexical structure of
-the source program (which names were in scope when), so any part of the program
-annotated with `// in scope 0` would be missing `vec`, if you were stepping
-through the code in a debugger, for example.
+“scope”块（例如，`scope 1 {..}`）描述了源程序的词法结构（某个名称在哪个作用域中），
+因此，用`// in scope 0`中注释的程序的任何部分都看不到`vec`，在调试器中单步执行代码时就能发现这一点。
 
-**Basic blocks.** Reading further, we see our first **basic block** (naturally
-it may look slightly different when you view it, and I am ignoring some of the
-comments):
+**基本块**：进一步阅读代码，我们能看到我们的第一个“基本块”（自然，当您查看它时，它看起来可能略有不同，我也省略了一些注释）：
 
 ```mir
 bb0: {
@@ -126,33 +97,25 @@ bb0: {
 }
 ```
 
-A basic block is defined by a series of **statements** and a final
-**terminator**.  In this case, there is one statement:
+基本块由一系列**语句**和最终**终结句**定义。 在这个例子，有一个语句：
 
 ```mir
 StorageLive(_1);
 ```
 
-This statement indicates that the variable `_1` is "live", meaning
-that it may be used later – this will persist until we encounter a
-`StorageDead(_1)` statement, which indicates that the variable `_1` is
-done being used. These "storage statements" are used by LLVM to
-allocate stack space.
+该语句表明变量` _1`是“活动的”，这意味着它可以在以后使用 —— 它将持续存在，直到遇到` StorageDead(_1)`语句为止，该语句表明变量`_1`已完成使用。
+LLVM使用这些“存储语句”来分配栈空间。
 
-The **terminator** of the block `bb0` is the call to `Vec::new`:
+`bb0`块的 **终结句** 是对 `Vec::new`的调用：
 
 ```mir
 _1 = const <std::vec::Vec<T>>::new() -> bb2;
 ```
 
-Terminators are different from statements because they can have more
-than one successor – that is, control may flow to different
-places. Function calls like the call to `Vec::new` are always
-terminators because of the possibility of unwinding, although in the
-case of `Vec::new` we are able to see that indeed unwinding is not
-possible, and hence we list only one successor block, `bb2`.
+终结句和一般语句不同，它们能有多个后继 —— 控制流可能会流向不同的地方。
+像 `Vec::new` 这样的函数调用永远是终结句，因为这可能可以导致堆栈解退，尽管在`Vec::new`的情况下显然堆栈解退是不可能的，因此我们只列出了唯一的后继块`bb2`。
 
-If we look ahead to `bb2`, we will see it looks like this:
+如果我们继续向前看到 `bb2`，我们可以看见像这样的代码：
 
 ```mir
 bb2: {
@@ -162,24 +125,21 @@ bb2: {
 }
 ```
 
-Here there are two statements: another `StorageLive`, introducing the `_3`
-temporary, and then an assignment:
+这里有两个语句：另一个 `StorageLive`，引入了` _3`临时变量，然后是一个赋值：
 
 ```mir
 _3 = &mut _1;
 ```
 
-Assignments in general have the form:
+赋值一般有形式：
 
 ```text
 <Place> = <Rvalue>
 ```
 
-A place is an expression like `_3`, `_3.f` or `*_3` – it denotes a
-location in memory.  An **Rvalue** is an expression that creates a
-value: in this case, the rvalue is a mutable borrow expression, which
-looks like `&mut <Place>`. So we can kind of define a grammar for
-rvalues like so:
+位置是类似于`_3`，`_ 3.f`或`* _3`的表达式——它表示内存中的位置。
+**右值**是一个创建值的表达式：在这种情况下，rvalue是一个可变借用表达式，看起来像`&mut <Place>`。
+因此，我们可以为右值定义语法，如下所示：
 
 ```text
 <Rvalue>  = & (mut)? <Place>
@@ -192,63 +152,49 @@ rvalues like so:
           | move Place
 ```
 
-As you can see from this grammar, rvalues cannot be nested – they can
-only reference places and constants. Moreover, when you use a place,
-we indicate whether we are **copying it** (which requires that the
-place have a type `T` where `T: Copy`) or **moving it** (which works
-for a place of any type). So, for example, if we had the expression `x
-= a + b + c` in Rust, that would get compiled to two statements and a
-temporary:
+从该语法可以看出，右值不能嵌套——它们只能引用位置和常量。
+此外，当您使用某个位置时，我们会指明是要**复制**该位置（要求该位置的类型为 `T: Copy`）还是**移动**它（适用于 任何类型的位置）。
+因此，例如，如果我们在Rust中写了表达式`x = a + b + c`，它将被编译为两个语句和一个临时变量：
 
 ```mir
 TMP1 = a + b
 x = TMP1 + c
 ```
 
-([Try it and see][play-abc], though you may want to do release mode to skip
-over the overflow checks.)
+（[试试看][play-abc]，你可能想要使用release模式来编译来跳过overflow检查）
 
 [play-abc]: https://play.rust-lang.org/?gist=1751196d63b2a71f8208119e59d8a5b6&version=stable
 
-## MIR data types
+## MIR 中的数据类型
 
-The MIR data types are defined in the [`src/librustc_middle/mir/`][mir]
-module.  Each of the key concepts mentioned in the previous section
-maps in a fairly straightforward way to a Rust type.
+MIR中的数据类型的定义在 [`src/librustc_middle/mir/`][mir]模块中。
+前面章节提到的关键概念都有一个直接对应的Rust类型。
 
-The main MIR data type is `Mir`. It contains the data for a single
-function (along with sub-instances of Mir for "promoted constants",
-but [you can read about those below](#promoted)).
+MIR的主要数据类型为`Mir`。 它包含单个函数的数据（以及Mir的“提升过的常量”的子实例，[您可以在下面阅读其中的内容](#promoted)）。
 
-- **Basic blocks**: The basic blocks are stored in the field
-  `basic_blocks`; this is a vector of `BasicBlockData`
-  structures. Nobody ever references a basic block directly: instead,
-  we pass around `BasicBlock` values, which are
-  [newtype'd] indices into this vector.
-- **Statements** are represented by the type `Statement`.
-- **Terminators** are represented by the `Terminator`.
-- **Locals** are represented by a [newtype'd] index type `Local`. The
-  data for a local variable is found in the `Mir` (the `local_decls`
-  vector). There is also a special constant `RETURN_PLACE` identifying
-  the special "local" representing the return value.
-- **Places** are identified by the enum `Place`. There are a few variants:
-  - Local variables like `_1`
-  - Static variables `FOO`
-  - **Projections**, which are fields or other things that "project
-    out" from a base place. So e.g. the place `_1.f` is a projection,
-    with `f` being the "projection element and `_1` being the base
-    path. `*_1` is also a projection, with the `*` being represented
-    by the `ProjectionElem::Deref` element.
-- **Rvalues** are represented by the enum `Rvalue`.
-- **Operands** are represented by the enum `Operand`.
+- **基本块**: 基本块被保存在 `basic_blocks`成员中；这是一个`BasicBlockData`向量。
+我们不会直接引用一个基本块，代替地，我们会传递`BasicBlock`值，其实际上是[newtype过的]这个向量中的索引。
+- **语句** 由 `Statement`类型表示。
+- **终结句** 由  `Terminator`类型表示。
+- **本地变量**  由类型 `Local` （[newtype过的]索引）表示。
+本地变量的实际数据保存在`Mir`中的`local_decls`。
+也有一个特殊的常量`RETURN_PLACE`来标记一个特殊的表示返回值的本地变量。
+- **位置** 由枚举 `Place`表示。有如下变种：
+  - 本地变量如 `_1`
+  - 静态变量如 `FOO`
+  - **投影**，这一般是结构的成员或者从某个基位置“投影”出来的位置。
+例如`_1.f`就是从`)1`上投影出来的。
+`*_1`也是一个投影，这类投影由 `ProjectionElem::Deref` 代表。
+- **Rvalues** 由 `Rvalue`枚举表示。
+- **Operands** 由 `Operand` 枚举表示。
 
-## Representing constants
+## 表示常量
 
 *to be written*
 
 <a name="promoted"></a>
 
-### Promoted constants
+### 提升过的常量
 
 *to be written*
 
@@ -256,4 +202,4 @@ but [you can read about those below](#promoted)).
 [mir]: https://github.com/rust-lang/rust/tree/master/src/librustc_middle/mir
 [mirmanip]: https://github.com/rust-lang/rust/tree/master/src/librustc_mir
 [mir]: https://github.com/rust-lang/rust/tree/master/src/librustc_middle/mir
-[newtype'd]: ../appendix/glossary.html#newtype
+[newtype过的]: ../appendix/glossary.html#newtype
