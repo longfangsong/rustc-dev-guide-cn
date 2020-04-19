@@ -59,7 +59,7 @@
         - [AST Validation](./ast-validation.md)
         - [Feature Gate Checking](./feature-gate-ck.md)
     - [HIR （高层IR）](./hir.md)
-        - [Lowering AST to HIR](./lowering.md)
+        - [将AST lower 到 HIR](./lowering.md)
         - [Debugging](./hir-debugging.md)
     - [The MIR (Mid-level IR)](./mir/index.md)
         - [HAIR and MIR construction](./mir/construction.md)
