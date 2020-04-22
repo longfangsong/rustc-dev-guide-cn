@@ -1,48 +1,36 @@
-# HAIR and MIR construction
+# HAIR 和 MIR 的构建
 
-The lowering of [HIR] to [MIR] occurs for the following (probably incomplete)
-list of items:
+从 [HIR] lower到 [MIR] 的过程会在下面（可能不完整）这些item上进行：
 
-* Function and Closure bodies
-* Initializers of `static` and `const` items
-* Initializers of enum discriminants
-* Glue and Shims of any kind
-    * Tuple struct initializer functions
-    * Drop code (the `Drop::drop` function is not called directly)
-    * Drop implementations of types without an explicit `Drop` implementation
+* 函数体和闭包体
+* `static`和`const`的初始化
+* 枚举判别的初始化
+* 任何类型的胶水和补充代码
+    * Tuple结构体的初始化函数
+    * Drop 代码 （ `Drop::drop` 函数不会直接被调用）
+    * 没有显式 `Drop` 实现的对象的`drop`
 
-The lowering is triggered by calling the [`mir_built`] query.
-There is an intermediate representation
-between [HIR] and [MIR] called the [HAIR] that is only used during the lowering.
-The [HAIR]'s most important feature is that the various adjustments (which happen
-without explicit syntax) like coercions, autoderef, autoref and overloaded method
-calls have become explicit casts, deref operations, reference expressions or
-concrete function calls.
+Lowering是通过调用[`mir_built`]查询触发的。
+[HIR]和[MIR]之间有一个中间表示，称为[HAIR]，这仅在lowering过程中使用。
+[HAIR]的最重要特征是各种调整（在没有显式语法的情况下发生），例如隐式类型转换，自动解引用，自动引用和重载方法调用，已成为显式强制转换，解引用操作，引用操作和具体的函数调用。
 
-The [HAIR] has datatypes that mirror the [HIR] datatypes, but instead of e.g. `-x`
-being a `hair::ExprKind::Neg(hair::Expr)` it is a `hair::ExprKind::Neg(hir::Expr)`.
-This shallowness enables the `HAIR` to represent all datatypes that [HIR] has, but
-without having to create an in-memory copy of the entire [HIR].
-[MIR] lowering will first convert the topmost expression from
-[HIR] to [HAIR] (in [`rustc_mir_build::hair::cx::expr`]) and then process
-the [HAIR] expressions recursively.
+[HAIR]的数据类型与[HIR]数据类型类似，
+但是例如`-x`是`hair::ExprKind::Neg(hir::Expr)` ，
+而不是`hair::ExprKind::Neg(hair::Expr)`。
+这种shallow的特性使`HAIR`能够表示[HIR]具有的所有数据类型，而不必创建整个[HIR]的副本。
+[MIR] lowering 将首先将最上面的表达式从[HIR]转换为[HAIR]（在[`rustc_mir_build::hair::cx::expr`]中），然后递归处理[HAIR]表达式。
 
-The lowering creates local variables for every argument as specified in the signature.
-Next it creates local variables for every binding specified (e.g. `(a, b): (i32, String)`)
-produces 3 bindings, one for the argument, and two for the bindings. Next it generates
-field accesses that read the fields from the argument and writes the value to the binding
-variable.
+Lowering会为函数签名中指定的每个参数创建局部变量。
+接下来，它为指定的每个绑定创建局部变量（例如， `(a, b): (i32, String)`）产生3个绑定，一个用于参数，两个用于绑定。
+接下来，它生成字段访问，该访问从参数读取字段并将其值写入绑定变量。
 
-With this initialization out of the way, the lowering triggers a recursive call
-to a function that generates the MIR for the body (a `Block` expression) and
-writes the result into the `RETURN_PLACE`.
+在解决了初始化的情况下，lowering为函数体递归生成MIR（ `Block` 表达式）并将结果写入`RETURN_PLACE`。
 
-## `unpack!` all the things
+## `unpack!` 所有东西
 
-Functions that generate MIR tend to fall into one of two patterns.
-First, if the function generates only statements, then it will take a
-basic block as argument onto which those statements should be appended.
-It can then return a result as normal:
+生成MIR的函数有两种模式。
+第一种情况，如果该函数仅生成语句，则它将以基本块作为参数，这些语句应放入该基本块。
+然后可以正常返回结果：
 
 ```rust,ignore
 fn generate_some_mir(&mut self, block: BasicBlock) -> ResultType {
@@ -50,12 +38,10 @@ fn generate_some_mir(&mut self, block: BasicBlock) -> ResultType {
 }
 ```
 
-But there are other functions that may generate new basic blocks as well.
-For example, lowering an expression like `if foo { 22 } else { 44 }`
-requires generating a small "diamond-shaped graph".
-In this case, the functions take a basic block where their code starts
-and return a (potentially) new basic block where the code generation ends.
-The `BlockAnd` type is used to represent this:
+但是还有其他一些函数会生成新的基本块。
+例如，lowering像`if foo { 22 } else { 44 }`这样的表达式需要生成一个小的“菱形图”。
+在这种情况下，函数将在其代码开始处使用一个基本块，并在代码生成结束时返回一个（可能）新的基本块。
+`BlockAnd`类型用于表示此类情况：
 
 ```rust,ignore
 fn generate_more_mir(&mut self, block: BasicBlock) -> BlockAnd<ResultType> {
@@ -63,10 +49,9 @@ fn generate_more_mir(&mut self, block: BasicBlock) -> BlockAnd<ResultType> {
 }
 ```
 
-When you invoke these functions, it is common to have a local variable `block`
-that is effectively a "cursor". It represents the point at which we are adding new MIR.
-When you invoke `generate_more_mir`, you want to update this cursor.
-You can do this manually, but it's tedious:
+当您调用这些函数时，通常有一个局部变量`block`，它实际上是一个“光标”。 它代表了我们要添加新的MIR的位置。
+当调用`generate_more_mir`时，您会想更新该光标。
+您可以手动执行此操作，但这很繁琐：
 
 ```rust,ignore
 let mut block;
@@ -83,72 +68,62 @@ For this reason, we offer a macro that lets you write
 It simply extracts the new block and overwrites the
 variable `block` that you named in the `unpack!`.
 
-## Lowering expressions into the desired MIR
+因此，我们提供了一个宏，可让您编写
+`let v = unpack!(block = self.generate_more_mir(...))`。
+它简单地提取新的块并覆盖在`unpack!`中指明的变量`block`。
 
-There are essentially four kinds of representations one might want of an expression:
+## 将表达式 Lowering 到 MIR
 
-* `Place` refers to a (or part of a) preexisting memory location (local, static, promoted)
-* `Rvalue` is something that can be assigned to a `Place`
-* `Operand` is an argument to e.g. a `+` operation or a function call
-* a temporary variable containing a copy of the value
+本质上一个表达式可以有四种表示形式：
 
-The following image depicts a general overview of the interactions between the
-representations:
+* `Place` 指一个（或一部分）已经存在的内存地址（本地，静态，或者提升过的）
+* `Rvalue` 是可以给一个`Place`赋值的东西
+* `Operand` 是一个给像 `+` 这样的运算符或者一个函数调用的参数
+* 一个存放了一个值的拷贝的临时变量
+
+下图描绘了表示之间的交互的一般概述：
 
 <img src="mir_overview.svg">
 
-[Click here for a more detailed view](mir_detailed.svg)
+[点此看大图](mir_detailed.svg)
 
-We start out with lowering the function body to an `Rvalue` so we can create an
-assignment to `RETURN_PLACE`, This `Rvalue` lowering will in turn trigger lowering to
-`Operand` for its arguments (if any). `Operand` lowering either produces a `const`
-operand, or moves/copies out of a `Place`, thus triggering a `Place` lowering. An
-expression being lowered to a `Place` can in turn trigger a temporary to be created
-if the expression being lowered contains operations. This is where the snake bites its
-own tail and we need to trigger an `Rvalue` lowering for the expression to be written
-into the local.
+我们首先将函数体lowering到一个 `Rvalue`，这样我们就可以为 `RETURN_PLACE` 创建一个赋值，
+这个`Rvalue`的lowering反过来会触发其参数的`Operand` lowering（如果有的话）
+lowering `Operaper`会产生一个`const`操作数，或者移动/复制出`Place`，从而触发`Place` lowering。
+如果降低的表达式包含操作，则lowering到`Place`的表达式可以触发创建一个临时变量。
+这是蛇咬自己的尾巴的地方，我们需要触发`Rvalue` lowering，以将表达式的值写入本地变量。
 
 ## Operator lowering
 
-Operators on builtin types are not lowered to function calls (which would end up being
-infinite recursion calls, because the trait impls just contain the operation itself
-again). Instead there are `Rvalue`s for binary and unary operators and index operations.
-These `Rvalue`s later get codegened to llvm primitive operations or llvm intrinsics.
+内置类型的运算符不会lower为函数调用（这将导致无限递归调用，因为trait包含了操作本身）。相反，存在用于二元和一元运算符和索引运算的`Rvalue`。
+这些`Rvalue`稍后将生成为llvm基本操作或llvm内部函数。
 
-Operators on all other types get lowered to a function call to their `impl` of the
-operator's corresponding trait.
+所有其他类型的运算符都被lower为对运算符对应特征的`impl`的函数调用。
 
-Regardless of the lowering kind, the arguments to the operator are lowered to `Operand`s.
-This means all arguments are either constants, or refer to an already existing value
-somewhere in a local or static.
+无论采用哪种lower方式，运算符的参数都会lower为`Operand`。
+这意味着所有参数都是常量，或者引用局部或静态位置中已经存在的值。
 
-## Method call lowering
+## 方法调用的 lowering
 
-Method calls are lowered to the same `TerminatorKind` that function calls are.
-In [MIR] there is no difference between method calls and function calls anymore.
+方法调用被降低到与一般函数调用相同的`TerminatorKind`。
+在[MIR]中，方法调用和一般函数调用之间不再存在差异。
 
-## Conditions
+## 条件
 
-`if` conditions and `match` statements for `enum`s without variants with fields are
-lowered to `TerminatorKind::SwitchInt`. Each possible value (so `0` and `1` for `if`
-conditions) has a corresponding `BasicBlock` to which the code continues.
-The argument being branched on is (again) an `Operand` representing the value of
-the if condition.
+不带字段变量的`enum`的`if`条件判断和`match`语句都会被lower为`TerminatorKind::SwitchInt`。
+每个可能的值（如果为`if`条件判断，则对应的值为`0`和`1`）都有一个对应的`BasicBlock`。
+分支的参数是表示if条件值的`Operand`。
 
-### Pattern matching
+### 模式匹配
 
-`match` statements for `enum`s with variants that have fields are lowered to
-`TerminatorKind::SwitchInt`, too, but the `Operand` refers to a `Place` where the
-discriminant of the value can be found. This often involves reading the discriminant
-to a new temporary variable.
+具有字段`enum`的`match`语句也被lower为`TerminatorKind::SwitchInt`，但是操作数是一个`Place`，可以在其中找到该值的判别式。
+这通常涉及将判别式读取为新的临时变量。
 
-## Aggregate construction
+## 聚合构造
 
-Aggregate values of any kind (e.g. structs or tuples) are built via `Rvalue::Aggregate`.
-All fields are
-lowered to `Operator`s. This is essentially equivalent to one assignment
-statement per aggregate field plus an assignment to the discriminant in the
-case of `enum`s.
+任何类型的聚合值（例如结构或元组）都是通过`Rvalue::Aggregate`建立的。
+所有字段都lower为`Operator`。 
+从本质上讲，这等效于每个聚合字段都会有一个赋值语句，再加上一个对`enum`的判别式的赋值。
 
 [MIR]: ./index.html
 [HIR]: ../hir.html

@@ -62,8 +62,8 @@
         - [将AST lower 到 HIR](./lowering.md)
         - [Debugging](./hir-debugging.md)
     - [MIR （中层IR）](./mir/index.md)
-        - [HAIR and MIR construction](./mir/construction.md)
-        - [MIR visitor and traversal](./mir/visitor.md)
+        - [HAIR 与 MIR 的构造](./mir/construction.md)
+        - [MIR 访问者与遍历](./mir/visitor.md)
         - [MIR passes: getting the MIR for a function](./mir/passes.md)
     - [Closure expansion](./closure.md)
 
