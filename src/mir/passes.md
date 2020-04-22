@@ -1,87 +1,57 @@
 # MIR passes
 
-If you would like to get the MIR for a function (or constant, etc),
-you can use the `optimized_mir(def_id)` query. This will give you back
-the final, optimized MIR. For foreign def-ids, we simply read the MIR
-from the other crate's metadata. But for local def-ids, the query will
-construct the MIR and then iteratively optimize it by applying a
-series of passes. This section describes how those passes work and how
-you can extend them.
+如果您想获取某个函数（或常量，等等）的MIR，则可以使用`optimized_mir(def_id)`查询。
+这将返回给您最终的，优化的MIR。 对于外部def-id，我们只需从其他crate的元数据中读取MIR。
+但是对于本地def-id，查询将构造MIR，然后通过应用一系列pass来迭代优化它。 本节描述了这些pass的工作方式以及如何扩展它们。
 
-To produce the `optimized_mir(D)` for a given def-id `D`, the MIR
-passes through several suites of optimizations, each represented by a
-query. Each suite consists of multiple optimizations and
-transformations. These suites represent useful intermediate points
-where we want to access the MIR for type checking or other purposes:
+为了为给定的def-id`D`生成`optimized_mir(D)`，MIR会通过几组优化，每组均由一个查询表示。
+每个套件都包含多个优化和转换。
+这些套件代表有用的中间点，我们可以在这些中间点访问MIR以进行类型检查或其他目的：
 
-- `mir_build(D)` – not a query, but this constructs the initial MIR
-- `mir_const(D)` – applies some simple transformations to make MIR ready for
-  constant evaluation;
-- `mir_validated(D)` – applies some more transformations, making MIR ready for
-  borrow checking;
-- `optimized_mir(D)` – the final state, after all optimizations have been
-  performed.
+- `mir_build(D)` —— 这不是一个查询，而是构建初始MIR
+- `mir_const(D)` —— 应用一些简单的转换以使MIR准备进行常量求值；
+- `mir_validated(D)` —— 应用更多的转换，使MIR准备好进行借用检查；
+- `optimized_mir(D)` —— 完成所有优化后的最终状态。
 
-### Implementing and registering a pass
+### 实现并注册一个pass
 
-A `MirPass` is some bit of code that processes the MIR, typically –
-but not always – transforming it along the way somehow. For example,
-it might perform an optimization. The `MirPass` trait itself is found
-in [the `rustc_mir::transform` module][mirtransform], and it
-basically consists of one method, `run_pass`, that simply gets an
-`&mut Mir` (along with the tcx and some information about where it
-came from). The MIR is therefore modified in place (which helps to
-keep things efficient).
+`MirPass`是处理MIR的一些代码，通常（但不总是）以某种方式对其进行转换。 例如，它可能会执行优化。
+`MirPass` trait本身可在[`rustc_mir::transform`模块][mirtransform]中找到，它基本上由一个`run_pass`方法组成，
+该方法仅要求一个`&mut Mir`（以及tcx及有关其来源的一些信息）。
+因此，其是对MIR进行原地修改而非重新构造（这有助于保持效率）。
 
-A good example of a basic MIR pass is [`NoLandingPads`], which walks
-the MIR and removes all edges that are due to unwinding – this is
-used when configured with `panic=abort`, which never unwinds. As you
-can see from its source, a MIR pass is defined by first defining a
-dummy type, a struct with no fields, something like:
+基本的MIR pass的一个很好的例子是[`NoLandingPads`]，它遍历MIR并删除由于unwinding而产生的所有边——当配置为`panic=abort`时，它unwind永远不会发生。
+从源代码可以看到，MIR pass是通过首先定义虚拟类型（无字段的结构）来定义的，例如：
 
 ```rust
 struct MyPass;
 ```
 
-for which you then implement the `MirPass` trait. You can then insert
-this pass into the appropriate list of passes found in a query like
-`optimized_mir`, `mir_validated`, etc. (If this is an optimization, it
-should go into the `optimized_mir` list.)
+接下来您可以为它实现`MirPass`特征。
+然后，您可以将此pass插入到在诸如`optimized_mir`，`mir_validated`等查询的pass的适当列表中。
+（如果这是一种优化，则应进入`optimized_mir`列表中。）
 
-If you are writing a pass, there's a good chance that you are going to
-want to use a [MIR visitor]. MIR visitors are a handy way to walk all
-the parts of the MIR, either to search for something or to make small
-edits.
+如果您要写pass，则很有可能要使用[MIR访问者]。
+MIR访问者是一种方便的方法，可以遍历MIR的所有部分，以进行搜索或进行少量编辑。
 
-### Stealing
+### 窃取
 
-The intermediate queries `mir_const()` and `mir_validated()` yield up
-a `&'tcx Steal<Mir<'tcx>>`, allocated using
-`tcx.alloc_steal_mir()`. This indicates that the result may be
-**stolen** by the next suite of optimizations – this is an
-optimization to avoid cloning the MIR. Attempting to use a stolen
-result will cause a panic in the compiler. Therefore, it is important
-that you do not read directly from these intermediate queries except as
-part of the MIR processing pipeline.
+中间查询`mir_const()`和`mir_validated()`产生一个使用`tcx.alloc_steal_mir()`分配的`&tcx Steal<Mir<'tcx >>`。
+这表明结果可能会被下一组优化**窃取** —— 这是一种避免克隆MIR的优化。
+尝试使用被窃取的结果会导致编译器panic。
+因此，重要的是，除了作为MIR处理管道的一部分之外，不要直接从这些中间查询中读取信息。
 
-Because of this stealing mechanism, some care must also be taken to
-ensure that, before the MIR at a particular phase in the processing
-pipeline is stolen, anyone who may want to read from it has already
-done so. Concretely, this means that if you have some query `foo(D)`
-that wants to access the result of `mir_const(D)` or
-`mir_validated(D)`, you need to have the successor pass "force"
-`foo(D)` using `ty::queries::foo::force(...)`. This will force a query
-to execute even though you don't directly require its result.
+由于存在这种窃取机制，因此还必须注意确保在处理管道中特定阶段的MIR被窃取之前，任何想要读取的信息都已经被读取完了。
+具体来说，这意味着如果您有一些查询`foo(D)`要访问`mir_const(D)`或`mir_validated(D)`的结果，
+则需要让后继使用`ty::queries::foo::force(...)`强制传递`foo(D)`。
+即使您不直接要求查询结果，这也会强制执行查询。
 
-As an example, consider MIR const qualification. It wants to read the
-result produced by the `mir_const()` suite. However, that result will
-be **stolen** by the `mir_validated()` suite. If nothing was done,
-then `mir_const_qualif(D)` would succeed if it came before
-`mir_validated(D)`, but fail otherwise. Therefore, `mir_validated(D)`
-will **force** `mir_const_qualif` before it actually steals, thus
-ensuring that the reads have already happened (remember that
-[queries are memoized](../query.html), so executing a query twice
-simply loads from a cache the second time):
+例如，考虑MIR const限定。
+它想读取由`mir_const()`套件产生的结果。
+但是，该结果将被`mir_validated()`套件**窃取**。
+如果什么都不做，那么如果`mir_const_qualif(D)`在`mir_validated(D)`之前执行，它将成功执行，否则就会失败。
+因此，`mir_validated(D)`会在实际窃取之前对`mir_const_qualif`进行强制执行，
+从而确保读取已发生（请记住[查询已被记忆](../query.html)，因此执行第二次查询时只是从缓存加载）：
 
 ```text
 mir_const(D) --read-by--> mir_const_qualif(D)
@@ -92,10 +62,9 @@ mir_const(D) --read-by--> mir_const_qualif(D)
 mir_validated(D) ------------+
 ```
 
-This mechanism is a bit dodgy. There is a discussion of more elegant
-alternatives in [rust-lang/rust#41710].
+这种机制有点偷奸耍滑的感觉。 [rust-lang/rust#41710] 中讨论了更优雅的替代方法。
 
 [rust-lang/rust#41710]: https://github.com/rust-lang/rust/issues/41710
 [mirtransform]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir/transform/
 [`NoLandingPads`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir/transform/no_landing_pads/struct.NoLandingPads.html
-[MIR visitor]: ./visitor.html
+[MIR 访问者]: ./visitor.html

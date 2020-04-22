@@ -64,7 +64,7 @@
     - [MIR （中层IR）](./mir/index.md)
         - [HAIR 与 MIR 的构造](./mir/construction.md)
         - [MIR 访问者与遍历](./mir/visitor.md)
-        - [MIR passes: getting the MIR for a function](./mir/passes.md)
+        - [MIR passes: 为一个函数获取MIR](./mir/passes.md)
     - [Closure expansion](./closure.md)
 
 - [Part 4: Analysis](./part-4-intro.md)
