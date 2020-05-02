@@ -1,12 +1,7 @@
-# Part 4: Analysis
+# Part 4: 分析
 
-This part discusses the many analyses that the compiler uses to check various
-properties of the code and to inform later stages. Typically, this is what people
-mean when they talk about "Rust's type system". This includes the
-representation, inference, and checking of types, the trait system, and the
-borrow checker. These analyses do not happen as one big pass or set of
-contiguous passes. Rather, they are spread out throughout various parts of the
-compilation process and use different intermediate representations. For example,
-type checking happens on the HIR, while borrow checking happens on the MIR.
-Nonetheless, for the sake of presentation, we will discuss all of these
-analyses in this part of the guide.
+本部分讨论了编译器用来检查代码的各种属性并通知以后阶段的许多分析。 通常，这就是人们谈论“Rust的类型系统”时的意思。
+这包括类型，特征系统和借用检查器的表示，推断和检查。
+这些分析不会作为一个大pass或一组连续pass进行。 相反，它们分布在整个编译过程的各个部分，并使用不同的中间表示形式。
+例如，类型检查在HIR上进行，而借用检查在MIR上进行。
+尽管如此，出于介绍的目的，我们将在本指南的这一部分中讨论所有这些分析。

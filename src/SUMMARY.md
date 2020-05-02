@@ -67,8 +67,8 @@
         - [MIR passes: 为一个函数获取MIR](./mir/passes.md)
     - [Closure expansion](./closure.md)
 
-- [Part 4: Analysis](./part-4-intro.md)
-    - [The `ty` module: representing types](./ty.md)
+- [Part 4: 分析](./part-4-intro.md)
+    - [`ty` 模块：类型的表示](./ty.md)
         - [Generics and substitutions](./generics.md)
         - [`TypeFolder` and `TypeFoldable`](./ty-fold.md)
         - [Generic arguments](./generic_arguments.md)
