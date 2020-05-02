@@ -43,11 +43,10 @@ rustc中的HIR可以看作是高级中间表示。
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 描述类型的*语法*：用户写的内容（去除了一些语法糖）。 | 描述一种类型的“语义”：用户写的内容的含义。 |
 | 每个`rustc_hir::Ty`都有自己的span，对应于程序中的适当位置。 | 与用户程序中的单个位置不对应。 |
-| `rustc_hir::Ty`具有泛型和生命周期； 但是，其中一些生命周期是特殊标记，例如[`LifetimeName::Implicit`][implicit]。 | `ty::Ty`具有完整的类型，包括泛型和生命周期，即使用户忽略了它们 |
+| `rustc_hir::Ty`具有泛型和生命周期； 但是，其中一些生命周期是特殊标记，例如[`LifetimeName::Implicit`](https://doc.rust-lang.org/nightly/nightly-rustc/rustc_hir/enum.LifetimeName.html#variant.Implicit)。 | `ty::Ty`具有完整的类型，包括泛型和生命周期，即使用户忽略了它们 |
 | `fn foo(x: u32) → u32 { }` —— 两个`rustc_hir::Ty`代表了`u32`的两次不同的使用。 每个都有自己的`Span`等。——`rustc_hir::Ty`不能告诉我们两者是同一类型 | 整个程序中所有`u32`是同一个`ty::Ty`。——`ty::Ty`告诉我们，`u32`的两次使用表示相同的类型。 |
-| `fn foo(x: &u32) -> &u32)` —— 仍然有两个`rustc_hir::Ty`。 —— 在`rustc_hir::Ty`中这两个引用的生命期使用特殊标记[`LifetimeName::Implicit][implict]表示。 | `fn foo(x: &u32) -> &u32)` —— 单个`ty::Ty`。—— `ty::Ty`具有隐藏的生命周期参数 |
+| `fn foo(x: &u32) -> &u32)` —— 仍然有两个`rustc_hir::Ty`。 —— 在`rustc_hir::Ty`中这两个引用的生命期使用特殊标记[`LifetimeName::Implicit](https://doc.rust-lang.org/nightly/nightly-rustc/rustc_hir/enum.LifetimeName.html#variant.Implicit)表示。 | `fn foo(x: &u32) -> &u32)` —— 单个`ty::Ty`。—— `ty::Ty`具有隐藏的生命周期参数 |
 
-[implicit]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_hir/enum.LifetimeName.html#variant.Implicit
 
 **次序**  HIR是直接从AST构建的，因此会在生成任何`ty::Ty`之前发生。
 构建HIR之后，将完成一些基本的类型推断和类型检查。
@@ -99,7 +98,7 @@ mod b {
 `TyKind`是一个很大的枚举，代表了不同类型的类型（例如原生类型，引用，抽象数据类型，泛型，生命周期等）。
 `TyS`还有另外2个字段：`flags`和`outer_exclusive_binder`。
 它们是提高效率的便捷工具，可以汇总有关我们可能想知道的类型的信息，但本文并不多涉及这部分内容。
-最后，`ty::TyS`是[interned](./ memory.md)的，以便使`ty::TyS`可以是类似于指针的瘦类型。这使我们能够进行低成本的相等比较，以及其他的interning的好处。
+最后，`ty::TyS`是[interned](./memory.md)的，以便使`ty::TyS`可以是类似于指针的瘦类型。这使我们能够进行低成本的相等比较，以及其他的interning的好处。
 
 [tys]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/struct.TyS.html
 [kind]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/struct.TyS.html#structfield.kind

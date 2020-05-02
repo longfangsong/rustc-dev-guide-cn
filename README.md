@@ -1,4 +1,4 @@
-![Travis CI badge](https://api.travis-ci.com/rust-lang/rustc-dev-guide.svg?branch=master)
+![Travis CI badge](https://api.travis-ci.com/longfangsong/rustc-dev-guide-cn.svg?branch=master)
 
 
 This is a collaborative effort to build a guide that explains how rustc
