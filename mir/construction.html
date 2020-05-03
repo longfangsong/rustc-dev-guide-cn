@@ -1,0 +1,318 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>HAIR 与 MIR 的构造 - Guide to Rustc Development</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A guide to developing rustc">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../about-this-guide.html">关于</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="../part-1-intro.html"><strong aria-hidden="true">1.</strong> Part 1: 构建，调试和向rustc贡献代码</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../compiler-team.html"><strong aria-hidden="true">1.1.</strong> About the compiler team</a></li><li class="chapter-item "><a href="../building/how-to-build-and-run.html"><strong aria-hidden="true">1.2.</strong> 如何构建并运行编译器</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../building/suggested.html"><strong aria-hidden="true">1.2.1.</strong> 推荐的工作流程</a></li><li class="chapter-item "><a href="../building/bootstrapping.html"><strong aria-hidden="true">1.2.2.</strong> 编译器自举</a></li><li class="chapter-item "><a href="../building/build-install-distribution-artifacts.html"><strong aria-hidden="true">1.2.3.</strong> Distribution artifacts</a></li><li class="chapter-item "><a href="../building/compiler-documenting.html"><strong aria-hidden="true">1.2.4.</strong> Documenting Compiler</a></li><li class="chapter-item "><a href="../building/ctags.html"><strong aria-hidden="true">1.2.5.</strong> ctags</a></li></ol></li><li class="chapter-item "><a href="../tests/intro.html"><strong aria-hidden="true">1.3.</strong> The compiler testing framework</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../tests/running.html"><strong aria-hidden="true">1.3.1.</strong> Running tests</a></li><li class="chapter-item "><a href="../tests/adding.html"><strong aria-hidden="true">1.3.2.</strong> Adding new tests</a></li><li class="chapter-item "><a href="../compiletest.html"><strong aria-hidden="true">1.3.3.</strong> Using compiletest + commands to control test execution</a></li></ol></li><li class="chapter-item "><a href="../walkthrough.html"><strong aria-hidden="true">1.4.</strong> Walkthrough: a typical contribution</a></li><li class="chapter-item "><a href="../bug-fix-procedure.html"><strong aria-hidden="true">1.5.</strong> Bug Fix Procedure</a></li><li class="chapter-item "><a href="../implementing_new_features.html"><strong aria-hidden="true">1.6.</strong> Implementing new features</a></li><li class="chapter-item "><a href="../stability.html"><strong aria-hidden="true">1.7.</strong> Stability attributes</a></li><li class="chapter-item "><a href="../stabilization_guide.html"><strong aria-hidden="true">1.8.</strong> Stabilizing Features</a></li><li class="chapter-item "><a href="../compiler-debugging.html"><strong aria-hidden="true">1.9.</strong> Debugging the Compiler</a></li><li class="chapter-item "><a href="../profiling.html"><strong aria-hidden="true">1.10.</strong> Profiling the compiler</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../profiling/with_perf.html"><strong aria-hidden="true">1.10.1.</strong> with the linux perf tool</a></li></ol></li><li class="chapter-item "><a href="../conventions.html"><strong aria-hidden="true">1.11.</strong> Coding conventions</a></li><li class="chapter-item "><a href="../crates-io.html"><strong aria-hidden="true">1.12.</strong> crates.io Dependencies</a></li><li class="chapter-item "><a href="../diagnostics.html"><strong aria-hidden="true">1.13.</strong> Emitting Errors and other Diagnostics</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../diagnostics/lintstore.html"><strong aria-hidden="true">1.13.1.</strong> LintStore</a></li><li class="chapter-item "><a href="../diagnostics/diagnostic-codes.html"><strong aria-hidden="true">1.13.2.</strong> Diagnostic Codes</a></li></ol></li><li class="chapter-item "><a href="../ice-breaker/about.html"><strong aria-hidden="true">1.14.</strong> ICE-breaker teams</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../ice-breaker/cleanup-crew.html"><strong aria-hidden="true">1.14.1.</strong> &quot;Cleanup Crew&quot; ICE-breakers</a></li><li class="chapter-item "><a href="../ice-breaker/llvm.html"><strong aria-hidden="true">1.14.2.</strong> LLVM ICE-breakers</a></li></ol></li><li class="chapter-item "><a href="../licenses.html"><strong aria-hidden="true">1.15.</strong> Licenses</a></li></ol></li><li class="chapter-item expanded "><a href="../part-2-intro.html"><strong aria-hidden="true">2.</strong> Part 2: 高层编译器架构</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../overview.html"><strong aria-hidden="true">2.1.</strong> Overview of the Compiler</a></li><li class="chapter-item "><a href="../compiler-src.html"><strong aria-hidden="true">2.2.</strong> 编译器源码结构</a></li><li class="chapter-item "><a href="../query.html"><strong aria-hidden="true">2.3.</strong> 查询：需求驱动的编译</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../queries/query-evaluation-model-in-detail.html"><strong aria-hidden="true">2.3.1.</strong> 查询求值模型的详细介绍</a></li><li class="chapter-item "><a href="../queries/incremental-compilation.html"><strong aria-hidden="true">2.3.2.</strong> Incremental compilation</a></li><li class="chapter-item "><a href="../queries/incremental-compilation-in-detail.html"><strong aria-hidden="true">2.3.3.</strong> Incremental compilation In Detail</a></li><li class="chapter-item "><a href="../incrcomp-debugging.html"><strong aria-hidden="true">2.3.4.</strong> Debugging and Testing</a></li><li class="chapter-item "><a href="../queries/profiling.html"><strong aria-hidden="true">2.3.5.</strong> Profiling Queries</a></li><li class="chapter-item "><a href="../salsa.html"><strong aria-hidden="true">2.3.6.</strong> Salsa</a></li></ol></li><li class="chapter-item "><a href="../memory.html"><strong aria-hidden="true">2.4.</strong> Memory Management in Rustc</a></li></ol></li><li class="chapter-item expanded "><a href="../part-3-intro.html"><strong aria-hidden="true">3.</strong> Part 3: 源代码的不同表示</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../rustc-driver.html"><strong aria-hidden="true">3.1.</strong> The Rustc Driver and Interface</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../rustdoc.html"><strong aria-hidden="true">3.1.1.</strong> Rustdoc</a></li><li class="chapter-item "><a href="../rustc-driver-interacting-with-the-ast.html"><strong aria-hidden="true">3.1.2.</strong> Ex: Type checking through rustc_interface</a></li></ol></li><li class="chapter-item "><a href="../syntax-intro.html"><strong aria-hidden="true">3.2.</strong> 符号与AST</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../the-parser.html"><strong aria-hidden="true">3.2.1.</strong> 词法分析与文法分析</a></li><li class="chapter-item "><a href="../test-implementation.html"><strong aria-hidden="true">3.2.2.</strong> #[test] Implementation</a></li><li class="chapter-item "><a href="../panic-implementation.html"><strong aria-hidden="true">3.2.3.</strong> Panic Implementation</a></li><li class="chapter-item "><a href="../macro-expansion.html"><strong aria-hidden="true">3.2.4.</strong> Macro expansion</a></li><li class="chapter-item "><a href="../name-resolution.html"><strong aria-hidden="true">3.2.5.</strong> Name resolution</a></li><li class="chapter-item "><a href="../ast-validation.html"><strong aria-hidden="true">3.2.6.</strong> AST Validation</a></li><li class="chapter-item "><a href="../feature-gate-ck.html"><strong aria-hidden="true">3.2.7.</strong> Feature Gate Checking</a></li></ol></li><li class="chapter-item "><a href="../hir.html"><strong aria-hidden="true">3.3.</strong> HIR （高层IR）</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../lowering.html"><strong aria-hidden="true">3.3.1.</strong> 将AST lower 到 HIR</a></li><li class="chapter-item "><a href="../hir-debugging.html"><strong aria-hidden="true">3.3.2.</strong> Debugging</a></li></ol></li><li class="chapter-item expanded "><a href="../mir/index.html"><strong aria-hidden="true">3.4.</strong> MIR （中层IR）</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../mir/construction.html" class="active"><strong aria-hidden="true">3.4.1.</strong> HAIR 与 MIR 的构造</a></li><li class="chapter-item "><a href="../mir/visitor.html"><strong aria-hidden="true">3.4.2.</strong> MIR 访问者与遍历</a></li><li class="chapter-item "><a href="../mir/passes.html"><strong aria-hidden="true">3.4.3.</strong> MIR passes: 为一个函数获取MIR</a></li></ol></li><li class="chapter-item "><a href="../closure.html"><strong aria-hidden="true">3.5.</strong> Closure expansion</a></li></ol></li><li class="chapter-item expanded "><a href="../part-4-intro.html"><strong aria-hidden="true">4.</strong> Part 4: 分析</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../ty.html"><strong aria-hidden="true">4.1.</strong> ty 模块：类型的表示</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../generics.html"><strong aria-hidden="true">4.1.1.</strong> 范型和替换</a></li><li class="chapter-item "><a href="../ty-fold.html"><strong aria-hidden="true">4.1.2.</strong> TypeFolder and TypeFoldable</a></li><li class="chapter-item "><a href="../generic_arguments.html"><strong aria-hidden="true">4.1.3.</strong> Generic arguments</a></li></ol></li><li class="chapter-item "><a href="../type-inference.html"><strong aria-hidden="true">4.2.</strong> Type inference</a></li><li class="chapter-item "><a href="../traits/resolution.html"><strong aria-hidden="true">4.3.</strong> Trait solving (old-style)</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../traits/hrtb.html"><strong aria-hidden="true">4.3.1.</strong> Higher-ranked trait bounds</a></li><li class="chapter-item "><a href="../traits/caching.html"><strong aria-hidden="true">4.3.2.</strong> Caching subtleties</a></li><li class="chapter-item "><a href="../traits/specialization.html"><strong aria-hidden="true">4.3.3.</strong> Specialization</a></li></ol></li><li class="chapter-item "><a href="../traits/index.html"><strong aria-hidden="true">4.4.</strong> Trait solving (new-style)</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../traits/lowering-to-logic.html"><strong aria-hidden="true">4.4.1.</strong> Lowering to logic</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../traits/goals-and-clauses.html"><strong aria-hidden="true">4.4.1.1.</strong> Goals and clauses</a></li><li class="chapter-item "><a href="../traits/associated-types.html"><strong aria-hidden="true">4.4.1.2.</strong> Equality and associated types</a></li><li class="chapter-item "><a href="../traits/implied-bounds.html"><strong aria-hidden="true">4.4.1.3.</strong> Implied bounds</a></li><li class="chapter-item "><a href="../traits/regions.html"><strong aria-hidden="true">4.4.1.4.</strong> Region constraints</a></li><li class="chapter-item "><a href="../traits/lowering-module.html"><strong aria-hidden="true">4.4.1.5.</strong> The lowering module in rustc</a></li><li class="chapter-item "><a href="../traits/lowering-rules.html"><strong aria-hidden="true">4.4.1.6.</strong> Lowering rules</a></li><li class="chapter-item "><a href="../traits/wf.html"><strong aria-hidden="true">4.4.1.7.</strong> Well-formedness checking</a></li></ol></li><li class="chapter-item "><a href="../traits/canonical-queries.html"><strong aria-hidden="true">4.4.2.</strong> Canonical queries</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../traits/canonicalization.html"><strong aria-hidden="true">4.4.2.1.</strong> Canonicalization</a></li></ol></li><li class="chapter-item "><a href="../traits/slg.html"><strong aria-hidden="true">4.4.3.</strong> The SLG solver</a></li><li class="chapter-item "><a href="../traits/chalk-overview.html"><strong aria-hidden="true">4.4.4.</strong> An Overview of Chalk</a></li><li class="chapter-item "><a href="../traits/bibliography.html"><strong aria-hidden="true">4.4.5.</strong> Bibliography</a></li></ol></li><li class="chapter-item "><a href="../type-checking.html"><strong aria-hidden="true">4.5.</strong> Type checking</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../method-lookup.html"><strong aria-hidden="true">4.5.1.</strong> Method Lookup</a></li><li class="chapter-item "><a href="../variance.html"><strong aria-hidden="true">4.5.2.</strong> Variance</a></li><li class="chapter-item "><a href="../opaque-types-type-alias-impl-trait.html"><strong aria-hidden="true">4.5.3.</strong> Opaque Types</a></li></ol></li><li class="chapter-item "><a href="../pat-exhaustive-checking.html"><strong aria-hidden="true">4.6.</strong> Pattern and Exhaustiveness Checking</a></li><li class="chapter-item "><a href="../borrow_check.html"><strong aria-hidden="true">4.7.</strong> The borrow checker</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../borrow_check/moves_and_initialization.html"><strong aria-hidden="true">4.7.1.</strong> Tracking moves and initialization</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../borrow_check/moves_and_initialization/move_paths.html"><strong aria-hidden="true">4.7.1.1.</strong> Move paths</a></li></ol></li><li class="chapter-item "><a href="../borrow_check/type_check.html"><strong aria-hidden="true">4.7.2.</strong> MIR type checker</a></li><li class="chapter-item "><a href="../borrow_check/region_inference.html"><strong aria-hidden="true">4.7.3.</strong> Region inference</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../borrow_check/region_inference/constraint_propagation.html"><strong aria-hidden="true">4.7.3.1.</strong> Constraint propagation</a></li><li class="chapter-item "><a href="../borrow_check/region_inference/lifetime_parameters.html"><strong aria-hidden="true">4.7.3.2.</strong> Lifetime parameters</a></li><li class="chapter-item "><a href="../borrow_check/region_inference/member_constraints.html"><strong aria-hidden="true">4.7.3.3.</strong> Member constraints</a></li><li class="chapter-item "><a href="../borrow_check/region_inference/placeholders_and_universes.html"><strong aria-hidden="true">4.7.3.4.</strong> Placeholders and universes</a></li><li class="chapter-item "><a href="../borrow_check/region_inference/closure_constraints.html"><strong aria-hidden="true">4.7.3.5.</strong> Closure constraints</a></li><li class="chapter-item "><a href="../borrow_check/region_inference/error_reporting.html"><strong aria-hidden="true">4.7.3.6.</strong> Error reporting</a></li></ol></li><li class="chapter-item "><a href="../borrow_check/two_phase_borrows.html"><strong aria-hidden="true">4.7.4.</strong> Two-phase-borrows</a></li></ol></li><li class="chapter-item "><a href="../param_env.html"><strong aria-hidden="true">4.8.</strong> Parameter Environments</a></li></ol></li><li class="chapter-item expanded "><a href="../part-5-intro.html"><strong aria-hidden="true">5.</strong> Part 5: From MIR to binaries</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../mir/index.html"><strong aria-hidden="true">5.1.</strong> The MIR (Mid-level IR)</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../mir/optimizations.html"><strong aria-hidden="true">5.1.1.</strong> MIR optimizations</a></li><li class="chapter-item "><a href="../mir/debugging.html"><strong aria-hidden="true">5.1.2.</strong> Debugging</a></li></ol></li><li class="chapter-item "><a href="../const-eval.html"><strong aria-hidden="true">5.2.</strong> Constant evaluation</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../miri.html"><strong aria-hidden="true">5.2.1.</strong> miri const evaluator</a></li></ol></li><li class="chapter-item "><a href="../backend/monomorph.html"><strong aria-hidden="true">5.3.</strong> Monomorphization</a></li><li class="chapter-item "><a href="../backend/lowering-mir.html"><strong aria-hidden="true">5.4.</strong> Lowering MIR</a></li><li class="chapter-item "><a href="../backend/codegen.html"><strong aria-hidden="true">5.5.</strong> Code Generation</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../backend/updating-llvm.html"><strong aria-hidden="true">5.5.1.</strong> Updating LLVM</a></li><li class="chapter-item "><a href="../backend/debugging.html"><strong aria-hidden="true">5.5.2.</strong> Debugging LLVM</a></li><li class="chapter-item "><a href="../backend/backend-agnostic.html"><strong aria-hidden="true">5.5.3.</strong> Backend Agnostic Codegen</a></li><li class="chapter-item "><a href="../codegen/implicit-caller-location.html"><strong aria-hidden="true">5.5.4.</strong> Implicit Caller Location</a></li></ol></li><li class="chapter-item "><a href="../profile-guided-optimization.html"><strong aria-hidden="true">5.6.</strong> Profile-guided Optimization</a></li><li class="chapter-item "><a href="../sanitizers.html"><strong aria-hidden="true">5.7.</strong> Sanitizers Support</a></li><li class="chapter-item "><a href="../debugging-support-in-rustc.html"><strong aria-hidden="true">5.8.</strong> Debugging Support in Rust Compiler</a></li><li class="spacer"></li></ol></li><li class="chapter-item expanded "><a href="../appendix/background.html">Appendix A: Background material</a></li><li class="chapter-item expanded affix "><a href="../appendix/glossary.html">Appendix B: Glossary</a></li><li class="chapter-item expanded affix "><a href="../appendix/code-index.html">Appendix C: Code Index</a></li><li class="chapter-item expanded affix "><a href="../appendix/compiler-lecture.html">Appendix D: Compiler Lecture Series</a></li><li class="chapter-item expanded affix "><a href="../appendix/bibliography.html">Appendix E: Bibliography</a></li><li class="chapter-item expanded affix "><a href="../appendix/humorust.html">Appendix Z: HumorRust</a></li><li class="spacer"></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">Guide to Rustc Development</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/longfangsong/rustc-dev-guide-cn" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#hair-和-mir-的构建" id="hair-和-mir-的构建">HAIR 和 MIR 的构建</a></h1>
+<p>从 <a href="../hir.html">HIR</a> lower到 <a href="./index.html">MIR</a> 的过程会在下面（可能不完整）这些item上进行：</p>
+<ul>
+<li>函数体和闭包体</li>
+<li><code>static</code>和<code>const</code>的初始化</li>
+<li>枚举判别的初始化</li>
+<li>任何类型的胶水和补充代码
+<ul>
+<li>Tuple结构体的初始化函数</li>
+<li>Drop 代码 （ <code>Drop::drop</code> 函数不会直接被调用）</li>
+<li>没有显式 <code>Drop</code> 实现的对象的<code>drop</code></li>
+</ul>
+</li>
+</ul>
+<p>Lowering是通过调用<a href="https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir_build/build/fn.mir_built.html"><code>mir_built</code></a>查询触发的。
+<a href="../hir.html">HIR</a>和<a href="./index.html">MIR</a>之间有一个中间表示，称为<a href="https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir_build/hair/index.html">HAIR</a>，这仅在lowering过程中使用。
+<a href="https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir_build/hair/index.html">HAIR</a>的最重要特征是各种调整（在没有显式语法的情况下发生），例如隐式类型转换，自动解引用，自动引用和重载方法调用，已成为显式强制转换，解引用操作，引用操作和具体的函数调用。</p>
+<p><a href="https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir_build/hair/index.html">HAIR</a>的数据类型与<a href="../hir.html">HIR</a>数据类型类似，
+但是例如<code>-x</code>是<code>hair::ExprKind::Neg(hir::Expr)</code> ，
+而不是<code>hair::ExprKind::Neg(hair::Expr)</code>。
+这种shallow的特性使<code>HAIR</code>能够表示<a href="../hir.html">HIR</a>具有的所有数据类型，而不必创建整个<a href="../hir.html">HIR</a>的副本。
+<a href="./index.html">MIR</a> lowering 将首先将最上面的表达式从<a href="../hir.html">HIR</a>转换为<a href="https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir_build/hair/index.html">HAIR</a>（在<a href="https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir_build/hair/cx/expr/index.html"><code>rustc_mir_build::hair::cx::expr</code></a>中），然后递归处理<a href="https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir_build/hair/index.html">HAIR</a>表达式。</p>
+<p>Lowering会为函数签名中指定的每个参数创建局部变量。
+接下来，它为指定的每个绑定创建局部变量（例如， <code>(a, b): (i32, String)</code>）产生3个绑定，一个用于参数，两个用于绑定。
+接下来，它生成字段访问，该访问从参数读取字段并将其值写入绑定变量。</p>
+<p>在解决了初始化的情况下，lowering为函数体递归生成MIR（ <code>Block</code> 表达式）并将结果写入<code>RETURN_PLACE</code>。</p>
+<h2><a class="header" href="#unpack-所有东西" id="unpack-所有东西"><code>unpack!</code> 所有东西</a></h2>
+<p>生成MIR的函数有两种模式。
+第一种情况，如果该函数仅生成语句，则它将以基本块作为参数，这些语句应放入该基本块。
+然后可以正常返回结果：</p>
+<pre><code class="language-rust ignore">fn generate_some_mir(&amp;mut self, block: BasicBlock) -&gt; ResultType {
+   ...
+}
+</code></pre>
+<p>但是还有其他一些函数会生成新的基本块。
+例如，lowering像<code>if foo { 22 } else { 44 }</code>这样的表达式需要生成一个小的“菱形图”。
+在这种情况下，函数将在其代码开始处使用一个基本块，并在代码生成结束时返回一个（可能）新的基本块。
+<code>BlockAnd</code>类型用于表示此类情况：</p>
+<pre><code class="language-rust ignore">fn generate_more_mir(&amp;mut self, block: BasicBlock) -&gt; BlockAnd&lt;ResultType&gt; {
+    ...
+}
+</code></pre>
+<p>当您调用这些函数时，通常有一个局部变量<code>block</code>，它实际上是一个“光标”。 它代表了我们要添加新的MIR的位置。
+当调用<code>generate_more_mir</code>时，您会想更新该光标。
+您可以手动执行此操作，但这很繁琐：</p>
+<pre><code class="language-rust ignore">let mut block;
+let v = match self.generate_more_mir(..) {
+    BlockAnd { block: new_block, value: v } =&gt; {
+        block = new_block;
+        v
+    }
+};
+</code></pre>
+<p>For this reason, we offer a macro that lets you write
+<code>let v = unpack!(block = self.generate_more_mir(...))</code>.
+It simply extracts the new block and overwrites the
+variable <code>block</code> that you named in the <code>unpack!</code>.</p>
+<p>因此，我们提供了一个宏，可让您编写
+<code>let v = unpack!(block = self.generate_more_mir(...))</code>。
+它简单地提取新的块并覆盖在<code>unpack!</code>中指明的变量<code>block</code>。</p>
+<h2><a class="header" href="#将表达式-lowering-到-mir" id="将表达式-lowering-到-mir">将表达式 Lowering 到 MIR</a></h2>
+<p>本质上一个表达式可以有四种表示形式：</p>
+<ul>
+<li><code>Place</code> 指一个（或一部分）已经存在的内存地址（本地，静态，或者提升过的）</li>
+<li><code>Rvalue</code> 是可以给一个<code>Place</code>赋值的东西</li>
+<li><code>Operand</code> 是一个给像 <code>+</code> 这样的运算符或者一个函数调用的参数</li>
+<li>一个存放了一个值的拷贝的临时变量</li>
+</ul>
+<p>下图描绘了表示之间的交互的一般概述：</p>
+<img src="mir_overview.svg">
+<p><a href="mir_detailed.svg">点此看大图</a></p>
+<p>我们首先将函数体lowering到一个 <code>Rvalue</code>，这样我们就可以为 <code>RETURN_PLACE</code> 创建一个赋值，
+这个<code>Rvalue</code>的lowering反过来会触发其参数的<code>Operand</code> lowering（如果有的话）
+lowering <code>Operaper</code>会产生一个<code>const</code>操作数，或者移动/复制出<code>Place</code>，从而触发<code>Place</code> lowering。
+如果降低的表达式包含操作，则lowering到<code>Place</code>的表达式可以触发创建一个临时变量。
+这是蛇咬自己的尾巴的地方，我们需要触发<code>Rvalue</code> lowering，以将表达式的值写入本地变量。</p>
+<h2><a class="header" href="#operator-lowering" id="operator-lowering">Operator lowering</a></h2>
+<p>内置类型的运算符不会lower为函数调用（这将导致无限递归调用，因为trait包含了操作本身）。相反，存在用于二元和一元运算符和索引运算的<code>Rvalue</code>。
+这些<code>Rvalue</code>稍后将生成为llvm基本操作或llvm内部函数。</p>
+<p>所有其他类型的运算符都被lower为对运算符对应特征的<code>impl</code>的函数调用。</p>
+<p>无论采用哪种lower方式，运算符的参数都会lower为<code>Operand</code>。
+这意味着所有参数都是常量，或者引用局部或静态位置中已经存在的值。</p>
+<h2><a class="header" href="#方法调用的-lowering" id="方法调用的-lowering">方法调用的 lowering</a></h2>
+<p>方法调用被降低到与一般函数调用相同的<code>TerminatorKind</code>。
+在<a href="./index.html">MIR</a>中，方法调用和一般函数调用之间不再存在差异。</p>
+<h2><a class="header" href="#条件" id="条件">条件</a></h2>
+<p>不带字段变量的<code>enum</code>的<code>if</code>条件判断和<code>match</code>语句都会被lower为<code>TerminatorKind::SwitchInt</code>。
+每个可能的值（如果为<code>if</code>条件判断，则对应的值为<code>0</code>和<code>1</code>）都有一个对应的<code>BasicBlock</code>。
+分支的参数是表示if条件值的<code>Operand</code>。</p>
+<h3><a class="header" href="#模式匹配" id="模式匹配">模式匹配</a></h3>
+<p>具有字段<code>enum</code>的<code>match</code>语句也被lower为<code>TerminatorKind::SwitchInt</code>，但是操作数是一个<code>Place</code>，可以在其中找到该值的判别式。
+这通常涉及将判别式读取为新的临时变量。</p>
+<h2><a class="header" href="#聚合构造" id="聚合构造">聚合构造</a></h2>
+<p>任何类型的聚合值（例如结构或元组）都是通过<code>Rvalue::Aggregate</code>建立的。
+所有字段都lower为<code>Operator</code>。 
+从本质上讲，这等效于每个聚合字段都会有一个赋值语句，再加上一个对<code>enum</code>的判别式的赋值。</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../mir/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../mir/visitor.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../mir/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../mir/visitor.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
