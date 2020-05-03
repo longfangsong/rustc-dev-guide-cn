@@ -69,7 +69,7 @@
 
 - [Part 4: 分析](./part-4-intro.md)
     - [`ty` 模块：类型的表示](./ty.md)
-        - [Generics and substitutions](./generics.md)
+        - [范型和替换](./generics.md)
         - [`TypeFolder` and `TypeFoldable`](./ty-fold.md)
         - [Generic arguments](./generic_arguments.md)
     - [Type inference](./type-inference.md)
