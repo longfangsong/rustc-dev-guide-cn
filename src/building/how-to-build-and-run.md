@@ -2,6 +2,15 @@
 
 编译器使用 `x.py` 工具构建。您将需要安装Python才能运行它。 但是在此之前，如果您打算修改`rustc`的代码，则需要调整编译器的配置。因为默认配置面向以用户而不是开发人员来进行构建。
 
+## Get the source code
+
+The very first step to work on `rustc` is to clone the repository:
+
+```bash
+git clone https://github.com/rust-lang/rust.git
+cd rust
+```
+
 ## 创建一个 config.toml
 
 先将 [`config.toml.example`] 复制为 `config.toml`:
@@ -9,31 +18,50 @@
 [`config.toml.example`]: https://github.com/rust-lang/rust/blob/master/config.toml.example
 
 ```bash
-> cd $RUST_CHECKOUT
-> cp config.toml.example config.toml
+cp config.toml.example config.toml
 ```
 
 然后，您将需要打开这个文件并更改以下设置（根据需求不同可能也要修改其他的设置，例如`llvm.ccache`）：
 
 ```toml
 [llvm]
-# Enables LLVM assertions, which will check that the LLVM bitcode generated
-# by the compiler is internally consistent. These are particularly helpful
-# if you edit `codegen`.
+# Indicates whether the LLVM assertions are enabled or not
 assertions = true
 
 [rust]
-# This will make your build more parallel; it costs a bit of runtime
-# performance perhaps (less inlining) but it's worth it.
+# Indicates that the build should be configured for debugging Rust. A
+# `debug`-enabled compiler and standard library will be somewhat
+# slower (due to e.g. checking of debug assertions) but should remain
+# usable.
+#
+# Note: If this value is set to `true`, it will affect a number of
+#       configuration options below as well, if they have been left
+#       unconfigured in this file.
+#
+# Note: changes to the `debug` setting do *not* affect `optimize`
+#       above. In theory, a "maximally debuggable" environment would
+#       set `optimize` to `false` above to assist the introspection
+#       facilities of debuggers like lldb and gdb. To recreate such an
+#       environment, explicitly set `optimize` to `false` and `debug`
+#       to `true`. In practice, everyone leaves `optimize` set to
+#       `true`, because an unoptimized rustc with debugging
+#       enabled becomes *unusably slow* (e.g. rust-lang/rust#24840
+#       reported a 25x slowdown) and bootstrapping the supposed
+#       "maximally debuggable" environment (notably std) takes
+#       hours to build.
+#
+debug = true
+
+# Number of codegen units to use for each compiler invocation. A value of 0
+# means "the number of cores on this machine", and 1+ is passed through to the
+# compiler.
 codegen-units = 0
 
-# This enables full debuginfo and debug assertions. The line debuginfo is also
-# enabled by `debuginfo-level = 1`. Full debuginfo is also enabled by
-# `debuginfo-level = 2`. Debug assertions can also be enabled with
-# `debug-assertions = true`. Note that `debug = true` will make your build
-# slower, so you may want to try individually enabling debuginfo and assertions
-# or enable only line debuginfo which is basically free.
-debug = true
+# Whether to always use incremental compilation when building rustc
+incremental = true
+
+# Emits extra output from tests so test failures are debuggable just from logfiles.
+verbose-tests = true
 ```
 
 如果您已经构建过了`rustc`，那么您可能必须执行`rm -rf build`才能使配置更改生效。 
@@ -87,6 +115,9 @@ debug = true
 
 要完整构建编译器，请运行`./x.py build`。 这将完成上述整个引导过程，并从您的源代码中生成可用的编译器工具链。 这需要很长时间，因此通常不需要真的运行这条命令（稍后会详细介绍）。
 
+Note that building will require a relatively large amount of storage space.
+You may want to have upwards of 10 or 15 gigabytes available to build the compiler.
+
 您可以将许多标志传递给`x.py`的build命令，这些标志可以减少编译时间或适应您可能需要更改的其他内容。 他们是：
 
 ```txt
@@ -114,7 +145,7 @@ Options:
 在创建了config.toml之后，就可以运行`x.py`。 这里有很多选项，但让我们从构建本地rust的最佳命令开始：
 
 ```bash
-./x.py build -i --stage 1 src/libstd
+./x.py build -i library/std
 ```
 
 *看起来*好像它仅构建`libstd`，但事实并非如此。该命令的作用如下：
@@ -146,13 +177,13 @@ Options:
 只构建 libcore 库
 
 ```bash
-./x.py build src/libcore
+./x.py build library/core
 ```
 
-只构建 libcore 和 libproc_macro 库
+Build the libcore and libproc_macro library only
 
 ```bash
-./x.py build src/libcore src/libproc_macro
+./x.py build library/core library/proc_macro
 ```
 
 只构建到 Stage 1 为止的 libcore
@@ -223,3 +254,5 @@ LLVM version: 4.0
 ```bash
 ./x.py clean
 ```
+
+`rm -rf build` works too, but then you have to rebuild LLVM.

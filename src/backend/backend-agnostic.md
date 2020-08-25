@@ -2,9 +2,9 @@
 
 In the future, it would be nice to allow other codegen backends (e.g.
 [Cranelift]). To this end, `librustc_codegen_ssa` provides an
-abstract interface for all backends to implenent.
+abstract interface for all backends to implement.
 
-[Cranelift]: https://github.com/bytecodealliance/wasmtime/tree/master/cranelift
+[Cranelift]: https://github.com/bytecodealliance/wasmtime/tree/HEAD/cranelift
 
 > The following is a copy/paste of a README from the rust-lang/rust repo.
 > Please submit a PR if it needs updating.
@@ -175,7 +175,7 @@ in the LLVM implementation of the trait).
 
 The traits offer an API which is very similar to the API of LLVM. This is not
 the best solution since LLVM has a very special way of doing things: when
-addding another backend, the traits definition might be changed in order to
+adding another backend, the traits definition might be changed in order to
 offer more flexibility.
 
 However, the current separation between backend-agnostic and LLVM-specific code

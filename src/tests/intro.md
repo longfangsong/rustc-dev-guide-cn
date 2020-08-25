@@ -51,7 +51,7 @@ details.
 - `rustdoc` – tests for rustdoc, making sure that the generated files
   contain the expected documentation.
 - `*-fulldeps` – same as above, but indicates that the test depends
-  on things other than `libstd` (and hence those things must be built)
+  on things other than `std` (and hence those things must be built)
 
 ## Other Tests
 
@@ -82,7 +82,7 @@ including:
   include typical Rust `#[test]` unittests.  Under the hood, `x.py` will run
   `cargo test` on each package to run all the tests.
 
-  Example: `./x.py test src/libstd`
+  Example: `./x.py test library/std`
 
 - **Doc tests** – Example code embedded within Rust documentation is executed
   via `rustdoc --test`.  Examples:
@@ -90,7 +90,7 @@ including:
   `./x.py test src/doc` – Runs `rustdoc --test` for all documentation in
   `src/doc`.
 
-  `./x.py test --doc src/libstd` – Runs `rustdoc --test` on the standard
+  `./x.py test --doc library/std` – Runs `rustdoc --test` on the standard
   library.
 
 - **Link checker** – A small tool for verifying `href` links within
@@ -116,19 +116,21 @@ including:
 
 ## Testing infrastructure
 
-When a Pull Request is opened on Github, [Azure Pipelines] will automatically
+When a Pull Request is opened on Github, [GitHub Actions] will automatically
 launch a build that will run all tests on some configurations
-(x86_64-gnu-llvm-6.0 linux. x86_64-gnu-tools linux, mingw-check linux). In
+(x86_64-gnu-llvm-8 linux. x86_64-gnu-tools linux, mingw-check linux). In
 essence, it runs `./x.py test` after building for each of them.
 
 The integration bot [bors] is used for coordinating merges to the master
 branch. When a PR is approved, it goes into a [queue] where merges are tested
-one at a time on a wide set of platforms using Azure Pipelines (currently over
-50 different configurations). Most platforms only run the build steps, some run
-a restricted set of tests, only a subset run the full suite of tests (see
-Rust's [platform tiers]).
+one at a time on a wide set of platforms using GitHub Actions (currently over
+50 different configurations). Due to the limit on the number of parallel jobs,
+we run CI under the [rust-lang-ci] organization except for PRs.
+Most platforms only run the build steps, some run a restricted set of tests,
+only a subset run the full suite of tests (see Rust's [platform tiers]).
 
-[Azure Pipelines]: https://dev.azure.com/rust-lang/rust/
+[GitHub Actions]: https://github.com/rust-lang/rust/actions
+[rust-lang-ci]: https://github.com/rust-lang-ci/rust/actions
 [bors]: https://github.com/servo/homu
 [queue]: https://buildbot2.rust-lang.org/homu/queue/rust
 [platform tiers]: https://forge.rust-lang.org/release/platform-support.html#rust-platform-support
@@ -136,28 +138,137 @@ Rust's [platform tiers]).
 ## Testing with Docker images
 
 The Rust tree includes [Docker] image definitions for the platforms used on
-Azure Pipelines in [src/ci/docker].  The script [src/ci/docker/run.sh] is used to build
+GitHub Actions in [`src/ci/docker`]. The script [`src/ci/docker/run.sh`] is used to build
 the Docker image, run it, build Rust within the image, and run the tests.
 
-> TODO: What is a typical workflow for testing/debugging on a platform that
-> you don't have easy access to?  Do people build Docker images and enter them
-> to test things out?
+You can run these images on your local development machine. This can be
+helpful to test environments different from your local system. First you will
+need to install Docker on a Linux, Windows, or macOS system (typically Linux
+will be much faster than Windows or macOS because the later use virtual
+machines to emulate a Linux environment). To enter interactive mode which will
+start a bash shell in the container, run `src/ci/docker/run.sh --dev <IMAGE>`
+where `<IMAGE>` is one of the directory names in `src/ci/docker` (for example
+`x86_64-gnu` is a fairly standard Ubuntu environment).
+
+The docker script will mount your local rust source tree in read-only mode,
+and an `obj` directory in read-write mode. All of the compiler artifacts will
+be stored in the `obj` directory. The shell will start out in the `obj`
+directory. From there, you can run `../src/ci/run.sh` which will run the build
+as defined by the image.
+
+Alternatively, you can run individual commands to do specific tasks. For
+example, you can run `python3 ../x.py test src/test/ui` to just run UI tests.
+Note that there is some configuration in the [`src/ci/run.sh`] script that you
+may need to recreate. Particularly, set `submodules = false` in your
+`config.toml` so that it doesn't attempt to modify the read-only directory.
+
+Some additional notes about using the Docker images:
+
+- Some of the std tests require IPv6 support. Docker on Linux seems to have it
+  disabled by default. Run the commands in [`enable-docker-ipv6.sh`] to enable
+  IPv6 before creating the container. This only needs to be done once.
+- The container will be deleted automatically when you exit the shell, however
+  the build artifacts persist in the `obj` directory. If you are switching
+  between different Docker images, the artifacts from previous environments
+  stored in the `obj` directory may confuse the build system. Sometimes you
+  will need to delete parts or all of the `obj` directory before building
+  inside the container.
+- The container is bare-bones, with only a minimal set of packages. You may
+  want to install some things like `apt install less vim`.
+- You can open multiple shells in the container. First you need the container
+  name (a short hash), which is displayed in the shell prompt, or you can run
+  `docker container ls` outside of the container to list the available
+  containers. With the container name, run `docker exec -it <CONTAINER>
+  /bin/bash` where `<CONTAINER>` is the container name like `4ba195e95cef`.
 
 [Docker]: https://www.docker.com/
-[src/ci/docker]: https://github.com/rust-lang/rust/tree/master/src/ci/docker
-[src/ci/docker/run.sh]: https://github.com/rust-lang/rust/blob/master/src/ci/docker/run.sh
+[`src/ci/docker`]: https://github.com/rust-lang/rust/tree/master/src/ci/docker
+[`src/ci/docker/run.sh`]: https://github.com/rust-lang/rust/blob/master/src/ci/docker/run.sh
+[`src/ci/run.sh`]: https://github.com/rust-lang/rust/blob/master/src/ci/run.sh
+[`enable-docker-ipv6.sh`]: https://github.com/rust-lang/rust/blob/master/src/ci/scripts/enable-docker-ipv6.sh
+
+## Running tests on a remote machine
+
+Tests may be run on a remote machine (e.g. to test builds for a different
+architecture). This is done using `remote-test-client` on the build machine
+to send test programs to `remote-test-server` running on the remote machine.
+`remote-test-server` executes the test programs and sends the results back to
+the build machine. `remote-test-server` provides *unauthenticated remote code
+execution* so be careful where it is used.
+
+To do this, first build `remote-test-server` for the remote
+machine, e.g. for RISC-V
+```sh
+./x.py build src/tools/remote-test-server --target riscv64gc-unknown-linux-gnu
+```
+
+The binary will be created at
+`./build/$HOST_ARCH/stage2-tools/$TARGET_ARCH/release/remote-test-server`. Copy
+this over to the remote machine.
+
+On the remote machine, run the `remote-test-server` with the `remote` argument
+(and optionally `-v` for verbose output). Output should look like this:
+```sh
+$ ./remote-test-server -v remote
+starting test server
+listening on 0.0.0.0:12345!
+```
+
+You can test if the `remote-test-server` is working by connecting to it and
+sending `ping\n`. It should reply `pong`:
+```sh
+$ nc $REMOTE_IP 12345
+ping
+pong
+```
+
+To run tests using the remote runner, set the `TEST_DEVICE_ADDR` environment
+variable then use `x.py` as usual. For example, to run `ui` tests for a RISC-V
+machine with the IP address `1.2.3.4` use
+```sh
+export TEST_DEVICE_ADDR="1.2.3.4:12345"
+./x.py test src/test/ui --target riscv64gc-unknown-linux-gnu
+```
+
+If `remote-test-server` was run with the verbose flag, output on the test machine
+may look something like
+```
+[...]
+run "/tmp/work/test1007/a"
+run "/tmp/work/test1008/a"
+run "/tmp/work/test1009/a"
+run "/tmp/work/test1010/a"
+run "/tmp/work/test1011/a"
+run "/tmp/work/test1012/a"
+run "/tmp/work/test1013/a"
+run "/tmp/work/test1014/a"
+run "/tmp/work/test1015/a"
+run "/tmp/work/test1016/a"
+run "/tmp/work/test1017/a"
+run "/tmp/work/test1018/a"
+[...]
+```
+
+Tests are built on the machine running `x.py` not on the remote machine. Tests
+which fail to build unexpectedly (or `ui` tests producing incorrect build
+output) may fail without ever running on the remote machine.
 
 ## Testing on emulators
 
 Some platforms are tested via an emulator for architectures that aren't
-readily available.  There is a set of tools for orchestrating running the
-tests within the emulator.  Platforms such as `arm-android` and
+readily available. For architectures where the standard library is well
+supported and the host operating system supports TCP/IP networking, see the
+above instructions for testing on a remote machine (in this case the
+remote machine is emulated).
+
+There is also a set of tools for orchestrating running the
+tests within the emulator. Platforms such as `arm-android` and
 `arm-unknown-linux-gnueabihf` are set up to automatically run the tests under
-emulation on Travis.  The following will take a look at how a target's tests
+emulation on GitHub Actions. The following will take a look at how a target's tests
 are run under emulation.
 
 The Docker image for [armhf-gnu] includes [QEMU] to emulate the ARM CPU
-architecture.  Included in the Rust tree are the tools [remote-test-client]
+architecture. Included in the Rust tree are the tools [remote-test-client]
 and [remote-test-server] which are programs for sending test programs and
 libraries to the emulator, and running the tests within the emulator, and
 reading the results.  The Docker image is set up to launch
@@ -165,19 +276,12 @@ reading the results.  The Docker image is set up to launch
 communicate with the server to coordinate running tests (see
 [src/bootstrap/test.rs]).
 
-> TODO: What are the steps for manually running tests within an emulator?
-> `./src/ci/docker/run.sh armhf-gnu` will do everything, but takes hours to
-> run and doesn't offer much help with interacting within the emulator.
->
-> Is there any support for emulating other (non-Android) platforms, such as
-> running on an iOS emulator?
->
-> Is there anything else interesting that can be said here about running tests
-> remotely on real hardware?
+> TODO:
+> Is there any support for using an iOS emulator?
 >
 > It's also unclear to me how the wasm or asm.js tests are run.
 
-[armhf-gnu]: https://github.com/rust-lang/rust/tree/master/src/ci/docker/armhf-gnu
+[armhf-gnu]: https://github.com/rust-lang/rust/tree/master/src/ci/docker/host-x86_64/armhf-gnu/Dockerfile
 [QEMU]: https://www.qemu.org/
 [remote-test-client]: https://github.com/rust-lang/rust/tree/master/src/tools/remote-test-client
 [remote-test-server]: https://github.com/rust-lang/rust/tree/master/src/tools/remote-test-server

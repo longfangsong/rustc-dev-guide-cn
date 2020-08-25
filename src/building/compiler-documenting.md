@@ -9,11 +9,14 @@ since documentation is more about the content.
 
 ## Document everything
 
+This uses the beta rustdoc, which usually but not always has the same output
+as stage 1 rustdoc.
+
 ```bash
 ./x.py doc
 ```
 
-## If you want to avoid the whole Stage 2 build
+## If you want to be sure that the links behave the same as on CI
 
 ```bash
 ./x.py doc --stage 1
@@ -27,7 +30,7 @@ and then it documents the files.
 ```bash
 ./x.py doc src/doc/book
 ./x.py doc src/doc/nomicon
-./x.py doc src/doc/book src/libstd
+./x.py doc src/doc/book library/std
 ```
 
 Much like individual tests or building certain components you can build only

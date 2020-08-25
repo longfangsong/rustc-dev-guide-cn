@@ -7,6 +7,7 @@
 词法分析接收字符串并将其转换为token流。
 例如，`a.b + c`将被转换为token `a`，`.`，`b`，`+`和`c`。 该词法分析器位于[`librustc_lexer`][lexer]中。
 
+[tokens]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_ast/token/index.html
 [lexer]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_lexer/index.html
 
 然后，文法分析将获取到的token流并将其转换为一种通常称为[*抽象语法树*][ast]（AST）的结构化形式，便于编译器使用。
@@ -23,6 +24,11 @@ AST是在[`librustc_ast`][librustc_ast]中定义的，
 从token流创建文法分析器，然后执行文法分析器以获取`Crate`（ AST根节点）。
 
 为了最大程度地减少复制的数量，`StringReader`和`Parser`都具有将其绑定到父`ParseSess`的生命周期。它包含文法分析时所需的所有信息以及`SourceMap`本身。
+
+Note that while parsing, we may encounter macro definitions or invocations. We
+set these aside to be expanded (see [this chapter](./macro-expansion.md)).
+Expansion may itself require parsing the output of the macro, which may reveal
+more macros to be expanded, and so on.
 
 ## 更多关于词法分析的信息
 

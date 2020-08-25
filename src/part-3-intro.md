@@ -2,4 +2,7 @@
 
 这部分描述了从用户那里获取原始源代码并将其转换为编译器可以轻松使用的各种形式的过程。 这些称为中间表示。
 
-此过程首先从编译器了解用户的要求开始：分析给定的命令行参数并确定要编译的内容。
+This process starts with compiler understanding what the user has asked for:
+parsing the command line arguments given and determining what it is to compile.
+After that, the compiler transforms the user input into a series of IRs that
+look progressively less like what the user wrote.

@@ -1,7 +1,273 @@
-# Emitting Errors and other Diagnostics
+# Errors and Lints
 
 A lot of effort has been put into making `rustc` have great error messages.
 This chapter is about how to emit compile errors and lints from the compiler.
+
+## Diagnostic structure
+
+The main parts of a diagnostic error are the following:
+
+```
+error[E0000]: main error message
+  --> file.rs:LL:CC
+   |
+LL | <code>
+   | -^^^^- secondary label
+   |  |
+   |  primary label
+   |
+   = note: note without a `Span`, created with `.note`
+note: sub-diagnostic message for `.span_note`
+  --> file.rs:LL:CC
+   |
+LL | more code
+   |      ^^^^
+```
+
+- Description (`error`, `warning`, etc.).
+- Code (for example, for "mismatched types", it is `E0308`). It helps
+  users get more information about the current error through an extended
+  description of the problem in the error code index.
+- Message. It is the main description of the problem. It should be general and
+  able to stand on its own, so that it can make sense even in isolation.
+- Diagnostic window. This contains several things:
+  - The path, line number and column of the beginning of the primary span.
+  - The users' affected code and its surroundings.
+  - Primary and secondary spans underlying the users' code. These spans can
+    optionally contain one or more labels.
+    - Primary spans should have enough text to describe the problem in such a
+      way that if it where the only thing being displayed (for example, in an
+      IDE) it would still make sense. Because it is "spatially aware" (it
+      points at the code), it can generally be more succinct than the error
+      message.
+    - If cluttered output can be foreseen in cases when multiple span labels
+      overlap, it is a good idea to tweak the output appropriately. For
+      example, the `if/else arms have incompatible types` error uses different
+      spans depending on whether the arms are all in the same line, if one of
+      the arms is empty and if none of those cases applies.
+- Sub-diagnostics. Any error can have multiple sub-diagnostics that look
+  similar to the main part of the error. These are used for cases where the
+  order of the explanation might not correspond with the order of the code. If
+  the order of the explanation can be "order free", leveraging secondary labels
+  in the main diagnostic is preferred, as it is typically less verbose.
+
+The text should be matter of fact and avoid capitalization and periods, unless
+multiple sentences are _needed_:
+
+```txt
+error: the fobrulator needs to be krontrificated
+```
+
+When code or an identifier must appear in a message or label, it should be
+surrounded with single acute accents \`.
+
+### Error explanations
+
+Some errors include long form descriptions. They may be viewed with the
+`--explain` flag, or via the [error index]. Each explanation comes with an
+example of how to trigger it and advice on how to fix it.
+
+Please read [RFC 1567] for details on how to format and write long error
+codes.
+
+The descriptions are written in markdown, and all of them are linked in the
+[`librustc_error_codes`] crate.
+
+TODO: When should an error use an error code, and when shouldn't it?
+
+[`librustc_error_codes`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_error_codes/error_codes/index.html
+[error index]: https://doc.rust-lang.org/error-index.html
+[RFC 1567]: https://github.com/rust-lang/rfcs/blob/master/text/1567-long-error-codes-explanation-normalization.md
+
+### Lints versus fixed diagnostics
+
+Some messages are emitted via [lints](#lints), where the user can control the
+level. Most diagnostics are hard-coded such that the user cannot control the
+level.
+
+Usually it is obvious whether a diagnostic should be "fixed" or a lint, but
+there are some grey areas.
+
+Here are a few examples:
+
+- Borrow checker errors: these are fixed errors. The user cannot adjust the
+  level of these diagnostics to silence the borrow checker.
+- Dead code: this is a lint. While the user probably doesn't want dead code in
+  their crate, making this a hard error would make refactoring and development
+  very painful.
+- [safe_packed_borrows future compatibility warning][safe_packed_borrows]:
+  this is a silencable lint related to safety. It was judged that the making
+  this a hard (fixed) error would cause too much breakage, so instead a
+  warning is emitted that eventually will be turned into a hard error.
+
+Hard-coded warnings (those using the `span_warn` methods) should be avoided
+for normal code, preferring to use lints instead. Some cases, such as warnings
+with CLI flags, will require the use of hard-coded warnings.
+
+See the `deny` [lint level](#diagnostic-levels) below for guidelines when to
+use an error-level lint instead of a fixed error.
+
+[safe_packed_borrows]: https://github.com/rust-lang/rust/issues/46043
+
+## Diagnostic output style guide
+
+- Write in plain simple English. If your message, when shown on a – possibly
+  small – screen (which hasn't been cleaned for a while), cannot be understood
+  by a normal programmer, who just came out of bed after a night partying,
+  it's too complex.
+- `Error`, `Warning`, `Note`, and `Help` messages start with a lowercase
+  letter and do not end with punctuation.
+- Error messages should be succinct. Users will see these error messages many
+  times, and more verbose descriptions can be viewed with the `--explain`
+  flag. That said, don't make it so terse that it's hard to understand.
+- The word "illegal" is illegal. Prefer "invalid" or a more specific word
+  instead.
+- Errors should document the span of code where they occur – the
+  [`rustc_errors::diagnostic_builder::DiagnosticBuilder`][diagbuild]  `span_*`
+  methods allow to easily do this. Also `note` other spans that have
+  contributed to the error if the span isn't too large.
+- When emitting a message with span, try to reduce the span to the smallest
+  amount possible that still signifies the issue
+- Try not to emit multiple error messages for the same error. This may require
+  detecting duplicates.
+- When the compiler has too little information for a specific error message,
+  consult with the compiler team to add new attributes for library code that
+  allow adding more information. For example see
+  [`#[rustc_on_unimplemented]`](#rustc_on_unimplemented). Use these
+  annotations when available!
+- Keep in mind that Rust's learning curve is rather steep, and that the
+  compiler messages are an important learning tool.
+- When talking about the compiler, call it `the compiler`, not `Rust` or
+  `rustc`.
+
+### Lint naming
+
+From [RFC 0344], lint names should be consistent, with the following
+guidelines:
+
+The basic rule is: the lint name should make sense when read as "allow
+*lint-name*" or "allow *lint-name* items". For example, "allow
+`deprecated` items" and "allow `dead_code`" makes sense, while "allow
+`unsafe_block`" is ungrammatical (should be plural).
+
+- Lint names should state the bad thing being checked for, e.g. `deprecated`,
+  so that `#[allow(deprecated)]` (items) reads correctly. Thus `ctypes` is not
+  an appropriate name; `improper_ctypes` is.
+
+- Lints that apply to arbitrary items (like the stability lints) should just
+  mention what they check for: use `deprecated` rather than
+  `deprecated_items`. This keeps lint names short. (Again, think "allow
+  *lint-name* items".)
+
+- If a lint applies to a specific grammatical class, mention that class and
+  use the plural form: use `unused_variables` rather than `unused_variable`.
+  This makes `#[allow(unused_variables)]` read correctly.
+
+- Lints that catch unnecessary, unused, or useless aspects of code should use
+  the term `unused`, e.g. `unused_imports`, `unused_typecasts`.
+
+- Use snake case in the same way you would for function names.
+
+[RFC 0344]: https://github.com/rust-lang/rfcs/blob/master/text/0344-conventions-galore.md#lints
+
+### Diagnostic levels
+
+Guidelines for different diagnostic levels:
+
+- `error`: emitted when the compiler detects a problem that makes it unable to
+  compile the program, either because the program is invalid or the programmer
+  has decided to make a specific `warning` into an error.
+
+- `warning`: emitted when the compiler detects something odd about a program.
+  Care should be taken when adding warnings to avoid warning fatigue, and
+  avoid false-positives where there really isn't a problem with the code. Some
+  examples of when it is appropriate to issue a warning:
+
+  - A situation where the user *should* take action, such as swap out a
+    deprecated item, or use a `Result`, but otherwise doesn't prevent
+    compilation.
+  - Unnecessary syntax that can be removed without affecting the semantics of
+    the code. For example, unused code, or unnecessary `unsafe`.
+  - Code that is very likely to be incorrect, dangerous, or confusing, but the
+    language technically allows, and is not ready or confident enough to make
+    an error. For example `unused_comparisons` (out of bounds comparisons) or
+    `bindings_with_variant_name` (the user likely did not intend to create a
+    binding in a pattern).
+  - [Future-incompatible lints](#future-incompatible), where something was
+    accidentally or erroneously accepted in the past, but rejecting would
+    cause excessive breakage in the ecosystem.
+  - Stylistic choices. For example, camel or snake case, or the `dyn` trait
+    warning in the 2018 edition. These have a high bar to be added, and should
+    only be used in exceptional circumstances. Other stylistic choices should
+    either be allow-by-default lints, or part of other tools like Clippy or
+    rustfmt.
+
+- `help`: emitted following an `error` or `warning` to give additional
+  information to the user about how to solve their problem. These messages
+  often include a suggestion string and [`rustc_errors::Applicability`]
+  confidence level to guide automated source fixes by tools. See the
+  [Suggestions](#suggestions) section for more details.
+
+  The error or warning portion should *not* suggest how to fix the problem,
+  only the "help" sub-diagnostic should.
+
+- `note`: emitted to identify additional circumstances and parts of the code
+  that caused the warning or error. For example, the borrow checker will note
+  any previous conflicting borrows.
+
+Not to be confused with *lint levels*, whose guidelines are:
+
+- `forbid`: Lints should never default to `forbid`.
+- `deny`: Equivalent to `error` diagnostic level. Some examples:
+
+  - A future-incompatible or edition-based lint that has graduated from the
+    warning level.
+  - Something that has an extremely high confidence that is incorrect, but
+    still want an escape hatch to allow it to pass.
+
+- `warn`: Equivalent to the `warning` diagnostic level. See `warning` above
+  for guidelines.
+- `allow`: Examples of the kinds of lints that should default to `allow`:
+
+  - The lint has a too high false positive rate.
+  - The lint is too opinionated.
+  - The lint is experimental.
+  - The lint is used for enforcing something that is not normally enforced.
+    For example, the `unsafe_code` lint can be used to prevent usage of unsafe
+    code.
+
+More information about lint levels can be found in the [rustc
+book][rustc-lint-levels] and the [reference][reference-diagnostics].
+
+[`rustc_errors::Applicability`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_errors/enum.Applicability.html
+[reference-diagnostics]: https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#lint-check-attributes
+[rustc-lint-levels]: https://doc.rust-lang.org/nightly/rustc/lints/levels.html
+
+## Helpful tips and options
+
+### Finding the source of errors
+
+There are two main ways to find where a given error is emitted:
+
+- `grep` for either a sub-part of the error message/label or error code. This
+  usually works well and is straightforward, but there are some cases where
+  the error emitting code is removed from the code where the error is
+  constructed behind a relatively deep call-stack. Even then, it is a good way
+  to get your bearings.
+- Invoking `rustc` with the nightly-only flag `-Ztreat-err-as-bug=1`, which
+  will treat the first error being emitted as an Internal Compiler Error, which
+  allows you to use the environment variable `RUST_BACKTRACE=full` to get a
+  stack trace at the point the error has been emitted. Change the `1` to
+  something else if you whish to trigger on a later error. Some limitations
+  with this approach is that some calls get elided from the stack trace because
+  they get inlined in the compiled `rustc`, and the same problem we faced with
+  the prior approach, where the _construction_ of the error is far away from
+  where it is _emitted_. In some cases we buffer multiple errors in order to
+  emit them in order.
+
+The regular development practices apply: judicious use of `debug!()` statements
+and use of a debugger to trigger break points in order to figure out in what
+order things are happening.
 
 ## `Span`
 
@@ -84,10 +350,28 @@ Server][rls] and [`rustfix`][rustfix].
 [rls]: https://github.com/rust-lang/rls
 [rustfix]: https://github.com/rust-lang/rustfix
 
-Not all suggestions should be applied mechanically. Use the
+Not all suggestions should be applied mechanically, they have a degree of
+confidence in the suggested code, from high
+(`Applicability::MachineApplicable`) to low (`Applicability::MaybeIncorrect`).
+Be conservative when choosing the level. Use the
 [`span_suggestion`][span_suggestion] method of `DiagnosticBuilder` to
 make a suggestion. The last argument provides a hint to tools whether
 the suggestion is mechanically applicable or not.
+
+Suggestions point to one or more spans with corresponding code that will
+replace their current content.
+
+The message that accompanies them should be understandable in the following
+contexts:
+
+- shown as an independent sub-diagnostic (this is the default output)
+- shown as a label pointing at the affected span (this is done automatically if
+some heuristics for verbosity are met)
+- shown as a `help` sub-diagnostic with no content (used for cases where the
+suggestion is obvious from the text, but we still want to let tools to apply
+them))
+- not shown (used for _very_ obvious cases, but we still want to allow tools to
+apply them)
 
 [span_suggestion]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_errors/struct.DiagnosticBuilder.html#method.span_suggestion
 
@@ -157,9 +441,25 @@ The possible values of [`Applicability`][appl] are:
 
 [appl]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_errors/enum.Applicability.html
 
+### Suggestion Style Guide
+
+- Suggestions should not be a question. In particular, language like "did you
+  mean" should be avoided. Sometimes, it's unclear why a particular suggestion
+  is being made. In these cases, it's better to be upfront about what the
+  suggestion is.
+
+  Compare "did you mean: `Foo`" vs. "there is a struct with a similar name: `Foo`".
+
+- The message should not contain any phrases like "the following", "as shown",
+  etc. Use the span to convey what is being talked about.
+- The message may contain further instruction such as "to do xyz, use" or "to do
+  xyz, use abc".
+- The message may contain a name of a function, variable, or type, but avoid
+  whole expressions.
+
 ## Lints
 
-The compiler linting infrastructure is defined in the [`rustc::lint`][rlint]
+The compiler linting infrastructure is defined in the [`rustc_middle::lint`][rlint]
 module.
 
 [rlint]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/lint/index.html
@@ -173,7 +473,7 @@ crate.
 
 Every lint is implemented via a `struct` that implements the `LintPass` `trait`
 (you also implement one of the more specific lint pass traits, either
-`EarlyLintPass` or `LateLintPass`).  The trait implementation allows you to
+`EarlyLintPass` or `LateLintPass`). The trait implementation allows you to
 check certain syntactic constructs as the linter walks the source code. You can
 then choose to emit lints in a very similar way to compile errors.
 
@@ -198,35 +498,45 @@ declare_lint! {
     "suggest using `loop { }` instead of `while true { }`"
 }
 
-// Define a struct and `impl LintPass` for it.
-#[derive(Copy, Clone)]
-pub struct WhileTrue;
-
-// This declares a lint pass, providing a list of associated lints.  The
+// This declares a struct and a lint pass, providing a list of associated lints. The
 // compiler currently doesn't use the associated lints directly (e.g., to not
 // run the pass or otherwise check that the pass emits the appropriate set of
 // lints). However, it's good to be accurate here as it's possible that we're
 // going to register the lints via the get_lints method on our lint pass (that
 // this macro generates).
-impl_lint_pass!(
-    WhileTrue => [WHILE_TRUE],
-);
+declare_lint_pass!(WhileTrue => [WHILE_TRUE]);
 
-// LateLintPass has lots of methods. We only override the definition of
+// Helper function for `WhileTrue` lint.
+// Traverse through any amount of parenthesis and return the first non-parens expression.
+fn pierce_parens(mut expr: &ast::Expr) -> &ast::Expr {
+    while let ast::ExprKind::Paren(sub) = &expr.kind {
+        expr = sub;
+    }
+    expr
+}
+
+// `EarlyLintPass` has lots of methods. We only override the definition of
 // `check_expr` for this lint because that's all we need, but you could
 // override other methods for your own lint. See the rustc docs for a full
 // list of methods.
-impl<'a, 'tcx> LateLintPass<'a, 'tcx> for WhileTrue {
-    fn check_expr(&mut self, cx: &LateContext, e: &hir::Expr) {
-        if let hir::ExprWhile(ref cond, ..) = e.node {
-            if let hir::ExprLit(ref lit) = cond.node {
-                if let ast::LitKind::Bool(true) = lit.node {
-                    if lit.span.ctxt() == SyntaxContext::empty() {
+impl EarlyLintPass for WhileTrue {
+    fn check_expr(&mut self, cx: &EarlyContext<'_>, e: &ast::Expr) {
+        if let ast::ExprKind::While(cond, ..) = &e.kind {
+            if let ast::ExprKind::Lit(ref lit) = pierce_parens(cond).kind {
+                if let ast::LitKind::Bool(true) = lit.kind {
+                    if !lit.span.from_expansion() {
                         let msg = "denote infinite loops with `loop { ... }`";
-                        let condition_span = cx.tcx.sess.source_map().def_span(e.span);
-                        let mut err = cx.struct_span_lint(WHILE_TRUE, condition_span, msg);
-                        err.span_suggestion_short(condition_span, "use `loop`", "loop".to_owned());
-                        err.emit();
+                        let condition_span = cx.sess.source_map().guess_head_span(e.span);
+                        cx.struct_span_lint(WHILE_TRUE, condition_span, |lint| {
+                            lint.build(msg)
+                                .span_suggestion_short(
+                                    condition_span,
+                                    "use `loop`",
+                                    "loop".to_owned(),
+                                    Applicability::MachineApplicable,
+                                )
+                                .emit();
+                        })
                     }
                 }
             }
@@ -271,6 +581,7 @@ If you need a combination of options that's not supported by the
 `declare_lint!` macro, you can always define your own static with a type of
 `&Lint` but this is currently linted against in the compiler tree.
 
+<a id="future-incompatible"></a>
 ####  Guidelines for creating a future incompatibility lint
 
 - Create a lint defaulting to warn as normal, with ideally the same error

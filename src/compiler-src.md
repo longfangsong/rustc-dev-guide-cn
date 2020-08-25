@@ -1,109 +1,209 @@
 # 编译器源代码的高层次概观
 
-## Crate 结构
+> **NOTE**: The structure of the repository is going through a lot of
+> transitions. In particular, we want to get to a point eventually where the
+> top-level directory has separate directories for the compiler, build-system,
+> std libs, etc, rather than one huge `src/` directory.
+>
+> As of this writing, the std libs have been moved to `library/` and there is
+> an ongoing MCP to move the compiler to `compiler/`.
 
-Rust的主要存储库由`src`目录组成，该目录下有许多crate。 这些crate包含标准库和编译器的源代码。 当然，本文主要针对后者。
+Now that we have [seen what the compiler does](./overview.md), let's take a
+look at the structure of the contents of the rust-lang/rust repo.
 
-Rustc由许多crate组成，包括`rustc_ast`，`rustc`，`rustc_target`，`rustc_codegen`，`rustc_driver`等。 
-每个crate的源码都可以在`src/libXXX`之类的目录中找到，其中XXX是crate名称。
+## Workspace structure
 
-（注：这些crate的名称和划分不是一成不变的，可能会随着时间而改变。
-目前，我们倾向于采用更细粒度的划分来帮助缩短编译时间，
-尽管随着增量编译的改进，这种情况可能会发生变化。）
+The `rust-lang/rust` repository consists of a single large cargo workspace
+containing the compiler, the standard libraries (`core`, `alloc`, `std`,
+`proc_macro`, etc), and `rustdoc`, along with the build system and bunch of
+tools and submodules for building a full Rust distribution.
 
-这些crate的依赖关系结构大致是钻石形的：
+As of this writing, this structure is gradually undergoing some transformation
+to make it a bit less monolithic and more approachable, especially to
+newcommers.
 
-```text
-                  rustc_driver
-                /      |       \
-              /        |         \
-            /          |           \
-          /            v             \
-rustc_codegen  rustc_borrowck   ...  rustc_metadata
-          \            |            /
-            \          |          /
-              \        |        /
-                \      v      /
-                    rustc
-                       |
-                       v
-                   rustc_ast
-                    /    \
-                  /       \
-           rustc_span  rustc_builtin_macros
-```
+The repository consists of a `src` directory, under which there live many
+crates, which are the source for the compiler, build system, tools, etc. This
+directory is currently being broken up to be less monolithic. There is also a
+`library/` directory, where the standard libraries (`core`, `alloc`, `std`,
+`proc_macro`, etc) live.
 
-在这个格的顶部的`rustc_driver` crate是rust编译器的"main"函数。
-它没有太多的“实际代码”，而是将其他crate中定义的所有代码绑定在一起，并定义了整个执行流程。 
-（但是，随着我们越来越多地向 [查询模型] 过渡，编译的“流程”正越来越少地集中定义。）
+## Standard library
 
-在另一端，`rustc` crate定义了其余所有编译器中使用的通用的数据结构（例如，如何表示类型，trait和程序本身）。
-它也包含一些编译器本身的代码，尽管相对有限。
+The standard library crates are all in `library/`. They have intuitive names
+like `std`, `core`, `alloc`, etc.  There is also `proc_macro`, `test`, and
+other runtime libraries.
 
-最后，位于中间的凸出部分中的所有crate定义了编译器的大部分内容——它们都依赖于`rustc`，
-因此它们可以利用在那里定义的各种类型，并且导出`rustc_driver`将根据需要调用的公共子过程
-（这些crate导出的内容越来越多是“查询定义”，但这些内容将在稍后介绍）。
+This code is fairly similar to most other Rust crates except that it must be
+built in a special way because it can use unstable features.
 
-在`rustc`下面的是构成parser和错误报告机制的各种crate。
-它们也是internal部分的一部分
-（尽管它们确实确实会被其他的一些crate使用；但我们希望逐渐淘汰这种做法）。
+## Compiler
 
-## 编译的主要阶段
+> You may find it helpful to read [The Overview Chapter](./overview.md) first,
+> which gives an overview of how the compiler works. The crates mentioned in
+> this section implement the compiler.
+>
+> NOTE: As of this writing, the crates all live in `src/`, but there is an MCP
+> to move them to a new `compiler/` directory.
 
-Rust编译器目前处于过渡阶段。
-它曾经是一个纯粹的“基于pass”的编译器，我们在整个程序中运行了许多pass，每个过程都进行了特定的转换。
-我们正在逐步将这种基于pass的代码替换为基于按需**查询**的替代方案。
-在查询模型中，我们自结果往回工作，执行一个*query*来表达我们的最终目标（例如“编译此crate”）。
-该查询又可以进行其他查询（例如“为我提供crate中所有模块的列表”）。
-这些查询会进行其他查询，这些查询最终会在基本操作中触底，例如解析输入，运行类型检查器等等。
-这种按需模式允许我们做一些令人兴奋的事情，例如只做少量工作就能完成对单个函数的类型检查。
-它还有助于增量编译。 （有关定义查询的详细信息，请查看[查询模型]。）
+The compiler crates all have names starting with `librustc_*`. These are a
+collection of around 50 interdependent crates ranging in size from tiny to
+huge. There is also the `rustc` crate which is the actual binary (i.e. the
+`main` function); it doesn't actually do anything besides calling the
+`rustc_driver` crate, which drives the various parts of compilation in other
+crates.
 
-无论基于pass还是查询，编译器必须执行的基本操作都是相同的。
-唯一改变的是这些操作是前后调用还是按需调用。
-为了编译一个Rust crate，以下是我们采取的一般步骤：
+The dependency structure of these crates is complex, but roughly it is
+something like this:
 
-1. **Parsing 输入**
+- `rustc` (the binary) calls [`rustc_driver::main`][main].
+    - [`rustc_driver`] depends on a lot of other crates, but the main one is
+      [`rustc_interface`].
+        - [`rustc_interface`] depends on most of the other compiler crates. It
+          is a fairly generic interface for driving the whole compilation.
+            - Most of the other `rustc_*` crates depend on [`rustc_middle`],
+              which defines a lot of central data structures in the compiler.
+                - [`rustc_middle`] and most of the other crates depend on a
+                  handful of crates representing the early parts of the
+                  compiler (e.g. the parser), fundamental data structures (e.g.
+                  [`Span`]), or error reporting: [`rustc_data_structures`],
+                  [`rustc_span`], [`rustc_errors`], etc.
 
-    - 这一步将处理`.rs`文件并产生AST（“抽象语法树”）
-    - AST是在`src/librustc_ast/ast.rs`中定义的。 它旨在紧密地匹配Rust语言的词汇语法。
+[main]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_driver/fn.main.html
+[`rustc_driver`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_driver/index.html
+[`rustc_interface`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_interface/index.html
+[`rustc_middle`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/index.html
+[`rustc_data_structures`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_data_structures/index.html
+[`rustc_span`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_span/index.html
+[`Span`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_span/struct.Span.html
+[`rustc_errors`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_errors/index.html
 
-2. **名称解析，宏扩展和配置**
+You can see the exact dependencies by reading the `Cargo.toml` for the various
+crates, just like a normal Rust crate.
 
-    - parse完成后，我们将递归处理AST，解析路径并扩展宏。这个过程也处理`#[cfg]`节点，因此也可能把东西从AST中剥离出来。
+One final thing: [`src/llvm-project`] is a submodule for our fork of LLVM
+During bootstrapping, LLVM is built and the [`src/librustc_llvm`] and
+[`src/rustllvm`] crates contain rust wrappers around LLVM (which is written in
+C++), so that the compiler can interface with it.
 
-3. **降级成HIR**
+Most of this book is about the compiler, so we won't have any further
+explanation of these crates here.
 
-    - 名称解析完成后，我们将AST转换为HIR，或者说“[高级中间表示]”。 HIR在`src/librustc_middle/hir/`中定义；该模块还包含[降级]代码。
-    - HIR是AST的轻度简化版。它比AST进行了更多处理，并且更适合随后的分析。
-      它**不**需要匹配Rust语言的语法。
-    - 一个简单例子：在**AST**中，我们保留了用户编写的括号，
-    因此，即使`((1 + 2)+ 3)`和`1 + 2 + 3`是等效的，它们也被解析为不同的抽象语法树。
-    但是，在HIR中，括号节点被删除，并且这两个表达式以相同的方式表示。
+[`src/llvm-project`]: https://github.com/rust-lang/rust/tree/master/src
+[`src/librustc_llvm`]: https://github.com/rust-lang/rust/tree/master/src
+[`src/rustllvm`]: https://github.com/rust-lang/rust/tree/master/src
 
-    3. **类型检查和后续分析**
+### Big picture
 
-    - 处理HIR的重要步骤是执行类型检查。
-    该过程为每个HIR表达式分配类型，并且还负责解析一些“类型相关”的路径，例如字段访问
-    （`x.f` ——我们不知道正在访问哪个字段`f`，直到我们知道“x”的类型）
-    和关联类型（`T::Item` ——在知道`T`是什么之前，我们无法知道`Item`是什么类型）。
-    - 类型检查会创建“side-tables”（`TypeckTables`），其中包括表达式的类型，方法的解析方式等。
-    - 经过类型检查后，我们可以进行其他分析，例如访问控制检查。
+The dependency structure is influenced strongly by two main factors:
 
-4. **降级成MIR并进行后续处理**
+1. Organization. The compiler is a _huge_ codebase; it would be an impossibly
+   large crate. In part, the dependency structure reflects the code structure
+   of the compiler.
+2. Compile time. By breaking the compiler into multiple crates, we can take
+   better advantage of incremental/parallel compilation using cargo. In
+   particular, we try to have as few dependencies between crates as possible so
+   that we don't have to rebuild as many crates if you change one.
 
-    - 完成类型检查后，我们可以将HIR降低为MIR（“中级IR”），这是Rust的**非常**脱糖的版本，非常适合借用检查和某些高级优化。
+At the very bottom of the dependency tree are a handful of crates that are used
+by the whole compiler (e.g. [`rustc_span`]). The very early parts of the
+compilation process (e.g. parsing and the AST) depend on only these.
 
-5. **转换为LLVM和LLVM优化**
+Pretty soon after the AST is constructed, the compiler's [query system][query]
+gets set up.  The query system is set up in a clever way using function
+pointers. This allows us to break dependencies between crates, allowing more
+parallel compilation.
 
-    - 从MIR，我们可以生成LLVM IR。
-    - 然后LLVM会运行其各种优化，这会产生许多 `.o`文件（每个“codegen单位”一个）。
+However, since the query system is defined in [`rustc_middle`], nearly all
+subsequent parts of the compiler depend on this crate. It is a really large
+crate, leading to long compile times. Some efforts have been made to move stuff
+out of it with limited success. Another unfortunate side effect is that sometimes
+related functionality gets scattered across different crates. For example,
+linting functionality is scattered across earlier parts of the crate,
+[`rustc_lint`], [`rustc_middle`], and other places.
 
-6. **链接**
+[`rustc_lint`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_lint/index.html
 
-    - 最后，这些`.o`文件会链接在一起。
+More generally, in an ideal world, it seems like there would be fewer, more
+cohesive crates, with incremental and parallel compilation making sure compile
+times stay reasonable. However, our incremental and parallel compilation haven't
+gotten good enough for that yet, so breaking things into separate crates has
+been our solution so far.
 
+At the top of the dependency tree are the [`rustc_interface`] and
+[`rustc_driver`] crates. [`rustc_interface`] is an unstable wrapper around the
+query system that helps to drive the various stages of compilation. Other
+consumers of the compiler may use this interface in different ways (e.g.
+rustdoc or maybe eventually rust-analyzer). The [`rustc_driver`] crate first
+parses command line arguments and then uses [`rustc_interface`] to drive the
+compilation to completion.
 
-[查询模型]: query.html
-[高级中间表示]: hir.html
-[降级]: lowering.html
+[query]: ./query.md
+
+[orgch]: ./overview.md
+
+## rustdoc
+
+The bulk of `rustdoc` is in [`librustdoc`]. However, the `rustdoc` binary
+itself is [`src/tools/rustdoc`], which does nothing except call [`rustdoc::main`].
+
+There is also javascript and CSS for the rustdocs in [`src/tools/rustdoc-js`]
+and [`src/tools/rustdoc-themes`].
+
+You can read more about rustdoc in [this chapter][rustdocch].
+
+[`librustdoc`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustdoc/index.html
+[`rustdoc::main`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustdoc/fn.main.html
+[`src/tools/rustdoc`]:  https://github.com/rust-lang/rust/tree/master/src/tools/rustdoc
+[`src/tools/rustdoc-js`]: https://github.com/rust-lang/rust/tree/master/src/tools/rustdoc-js
+[`src/tools/rustdoc-themes`]: https://github.com/rust-lang/rust/tree/master/src/tools/rustdoc-themes
+
+[rustdocch]: ./rustdoc.md
+
+## Tests
+
+The test suite for all of the above is in [`src/test/`]. You can read more
+about the test suite [in this chapter][testsch].
+
+The test harness itself is in [`src/tools/compiletest`].
+
+[testsch]: ./tests/intro.md
+
+[`src/test/`]: https://github.com/rust-lang/rust/tree/master/src/test
+[`src/tools/compiletest`]: https://github.com/rust-lang/rust/tree/master/src/tools/compiletest
+
+## Build System
+
+There are a number of tools in the repository just for building the compiler,
+standard library, rustdoc, etc, along with testing, building a full Rust
+distribution, etc.
+
+One of the primary tools is [`src/bootstrap`]. You can read more about
+bootstrapping [in this chapter][bootstch]. The process may also use other tools
+from `src/tools/`, such as [`tidy`] or [`compiletest`].
+
+[`src/bootstrap`]: https://github.com/rust-lang/rust/tree/master/src/bootstrap
+[`tidy`]: https://github.com/rust-lang/rust/tree/master/src/tools/tidy
+[`compiletest`]: https://github.com/rust-lang/rust/tree/master/src/tools/compiletest
+
+[bootstch]: ./building/bootstrapping.md
+
+## Other
+
+There are a lot of other things in the `rust-lang/rust` repo that are related
+to building a full rust distribution. Most of the time you don't need to worry
+about them.
+
+These include:
+- [`src/ci`]: The CI configuration. This actually quite extensive because we
+  run a lot of tests on a lot of platforms.
+- [`src/doc`]: Various documentation, including submodules for a few books.
+- [`src/etc`]: Miscellaneous utilities.
+- [`src/tools/rustc-workspace-hack`], and others: Various workarounds to make
+  cargo work with bootstrapping.
+- And more...
+
+[`src/ci`]: https://github.com/rust-lang/rust/tree/master/src/ci
+[`src/doc`]: https://github.com/rust-lang/rust/tree/master/src/doc
+[`src/etc`]: https://github.com/rust-lang/rust/tree/master/src/etc
+[`src/tools/rustc-workspace-hack`]: https://github.com/rust-lang/rust/tree/master/src/tools/rustc-workspace-hack

@@ -1,15 +1,11 @@
-# Appendix C: Glossary
-
-The compiler uses a number of...idiosyncratic abbreviations and things. This
-glossary attempts to list them and give you a few pointers for understanding
-them better.
+# Glossary
 
 Term                                     | Meaning
 -----------------------------------------|--------
 arena/arena allocation <div id="arena"/> |  An _arena_ is a large memory buffer from which other memory allocations are made. This style of allocation is called _arena allocation_. See [this chapter](../memory.md) for more info.
 AST <div id="ast"/>                      |  The abstract syntax tree produced by the `rustc_ast` crate; reflects user syntax very closely.
 binder <div id="binder"/>                |  A "binder" is a place where a variable or type is declared; for example, the `<T>` is a binder for the generic type parameter `T` in `fn foo<T>(..)`, and \|`a`\|` ...` is a binder for the parameter `a`. See [the background chapter for more](./background.html#free-vs-bound).
-BodyId <div id="body-id"/                |  An identifier that refers to a specific body (definition of a function or constant) in the crate. See [the HIR chapter for more](../hir.html#identifiers-in-the-hir).
+BodyId <div id="body-id"/>               |  An identifier that refers to a specific body (definition of a function or constant) in the crate. See [the HIR chapter for more](../hir.html#identifiers-in-the-hir).
 bound variable <div id="bound-var"/>     |  A "bound variable" is one that is declared within an expression/term. For example, the variable `a` is bound within the closure expression \|`a`\|` a * 2`. See [the background chapter for more](./background.html#free-vs-bound)
 codegen <div id="codegen"/>              |  The code to translate MIR into LLVM IR.
 codegen unit <div id="codegen-unit"/>    |  When we produce LLVM IR, we group the Rust code into a number of codegen units (sometimes abbreviated as CGUs). Each of these units is processed by LLVM independently from one another, enabling parallelism. They are also the unit of incremental re-use. ([see more](../backend/codegen.md))
@@ -19,7 +15,9 @@ CTFE <div id="ctfe"/>                    |  Short for Compile-Time Function Eval
 cx <div id="cx"/>                        |  We tend to use "cx" as an abbreviation for context. See also `tcx`, `infcx`, etc.
 DAG <div id="dag"/>                      |  A directed acyclic graph is used during compilation to keep track of dependencies between queries. ([see more](../queries/incremental-compilation.html))
 data-flow analysis <div id="data-flow"/> |  A static analysis that figures out what properties are true at each point in the control-flow of a program; see [the background chapter for more](./background.html#dataflow).
+DeBruijn Index <div id="debruijn">       |  A technique for describing which binder a variable is bound by using only integers. It has the benefit that it is invariant under variable renaming. ([see more](./background.md#what-is-a-debruijn-index))
 DefId <div id="def-id"/>                 |  An index identifying a definition (see `librustc_middle/hir/def_id.rs`). Uniquely identifies a `DefPath`. See [the HIR chapter for more](../hir.html#identifiers-in-the-hir).
+Discriminant <div id="discriminant"/>    |  The underlying value associated with an enum variant or generator state to indicate it as "active" (but not to be confused with its ["variant index"](#variant-idx)). At runtime, the discriminant of the active variant is encoded in the [tag](#tag).
 Double pointer <div id="double-ptr"/>    |  A pointer with additional metadata. See "fat pointer" for more.
 drop glue <div id="drop-glue"/>          |  (internal) compiler-generated instructions that handle calling the destructors (`Drop`) for data types.
 DST <div id="dst"/>                      |  Short for Dynamically-Sized Type, this is a type for which the compiler cannot statically know the size in memory (e.g. `str` or `[u8]`). Such types don't implement `Sized` and cannot be allocated on the stack. They can only occur as the last field in a struct. They can only be used behind a pointer (e.g. `&str` or `&[u8]`).
@@ -36,6 +34,7 @@ ICH <div id="ich"/>                      |  Short for incremental compilation ha
 infcx <div id="infcx"/>                  |  The inference context (see `librustc_middle/infer`)
 inference variable <div id="inf-var"/>   |  When doing type or region inference, an "inference variable" is a kind of special type/region that represents what you are trying to infer. Think of X in algebra. For example, if we are trying to infer the type of a variable in a program, we create an inference variable to represent that unknown type.
 intern <div id="intern"/>                |  Interning refers to storing certain frequently-used constant data, such as strings, and then referring to the data by an identifier (e.g. a `Symbol`) rather than the data itself, to reduce memory usage and number of allocations. See [this chapter](../memory.md) for more info.
+intrinsic <div id="intrinsic"/>          |  Intrinsics are special functions that are implemented in the compiler itself but exposed (often unstably) to users. They do magical and dangerous things. (See [`std::intrinsics`](https://doc.rust-lang.org/std/intrinsics/index.html))
 IR <div id="ir"/>                        |  Short for Intermediate Representation, a general term in compilers. During compilation, the code is transformed from raw source (ASCII text) to various IRs. In Rust, these are primarily HIR, MIR, and LLVM IR. Each IR is well-suited for some set of computations. For example, MIR is well-suited for the borrow checker, and LLVM IR is well-suited for codegen because LLVM accepts it.
 IRLO <div id="irlo"/>                    |  `IRLO` or `irlo` is sometimes used as an abbreviation for [internals.rust-lang.org](https://internals.rust-lang.org).
 item <div id="item"/>                    |  A kind of "definition" in the language, such as a static, const, use statement, module, struct, etc. Concretely, this corresponds to the `Item` type.
@@ -48,8 +47,9 @@ memoization <div id="memoization"/>      |  The process of storing the results o
 MIR <div id="mir"/>                      |  The Mid-level IR that is created after type-checking for use by borrowck and codegen. ([see more](../mir/index.html))
 miri <div id="miri"/>                    |  An interpreter for MIR used for constant evaluation. ([see more](../miri.html))
 monomorphization <div id="mono"/>        |  The process of taking generic implementations of types and functions and instantiating them with concrete types. For example, in the code we might have `Vec<T>`, but in the final executable, we will have a copy of the `Vec` code for every concrete type used in the program (e.g. a copy for `Vec<usize>`, a copy for `Vec<MyStruct>`, etc).
-normalize <div id="normalize"/>          |  A general term for converting to a more canonical form, but in the case of rustc typically refers to [associated type normalization](../traits/associated-types.html#normalize).
+normalize <div id="normalize"/>          |  A general term for converting to a more canonical form, but in the case of rustc typically refers to [associated type normalization](../traits/goals-and-clauses.html#normalizeprojection---type).
 newtype <div id="newtype"/>              |  A wrapper around some other type (e.g., `struct Foo(T)` is a "newtype" for `T`). This is commonly used in Rust to give a stronger type for indices.
+Niche <div id="niche"/>                  |  Invalid bit patterns for a type *that can be used* for layout optimizations. Some types cannot have certain bit patterns. For example, the `NonZero*` integers or the reference `&T` cannot be represented by a 0 bitstring. This means the compiler can perform layout optimizations by taking advantage of the invalid "niche value". An example application for this is the [*Discriminant elision on `Option`-like enums*](https://rust-lang.github.io/unsafe-code-guidelines/layout/enums.html#discriminant-elision-on-option-like-enums), which allows using a type's niche as the ["tag"](#tag) for an `enum` without requiring a separate field.
 NLL <div id="nll"/>                      |  Short for [non-lexical lifetimes](../borrow_check/region_inference.html), this is an extension to Rust's borrowing system to make it be based on the control-flow graph.
 node-id or NodeId <div id="node-id"/>    |  An index identifying a particular node in the AST or HIR; gradually being phased out and replaced with `HirId`. See [the HIR chapter for more](../hir.html#identifiers-in-the-hir).
 obligation <div id="obligation"/>        |  Something that must be proven by the trait system. ([see more](../traits/resolution.html))
@@ -61,14 +61,16 @@ promoted constants <div id="pc"/>        |  Constants extracted from a function 
 provider <div id="provider"/>            |  The function that executes a query. ([see more](../query.html))
 quantified <div id="quantified"/>        |  In math or logic, existential and universal quantification are used to ask questions like "is there any type T for which is true?" or "is this true for all types T?"; see [the background chapter for more](./background.html#quantified).
 query <div id="query"/>                  |  Perhaps some sub-computation during compilation. ([see more](../query.html))
+recovery <div id="recovery"/>            |  Recovery refers to handling invalid syntax during parsing (e.g. a missing comma) and continuing to parse the AST. This avoid showing spurious errors to the user (e.g. showing 'missing field' errors when the struct definition contains errors).
 region <div id="region"/>                |  Another term for "lifetime" often used in the literature and in the borrow checker.
 rib <div id="rib"/>                      |  A data structure in the name resolver that keeps track of a single scope for names. ([see more](../name-resolution.html))
 sess <div id="sess"/>                    |  The compiler session, which stores global data used throughout compilation
 side tables <div id="side-tables"/>      |  Because the AST and HIR are immutable once created, we often carry extra information about them in the form of hashtables, indexed by the id of a particular node.
 sigil <div id="sigil"/>                  |  Like a keyword but composed entirely of non-alphanumeric tokens. For example, `&` is a sigil for references.
-soundness <div id="soundness"/>          |  A technical term in type theory. Roughly, if a type system is sound, then if a program type-checks, it is type-safe; i.e. I can never (in safe rust) force a value into a variable of the wrong type. (see "completeness").
+soundness <div id="soundness"/>          |  A technical term in type theory. Roughly, if a type system is sound, then a program that type-checks is type-safe. That is, one can never (in safe rust) force a value into a variable of the wrong type. (see "completeness").
 span <div id="span"/>                    |  A location in the user's source code, used for error reporting primarily. These are like a file-name/line-number/column tuple on steroids: they carry a start/end point, and also track macro expansions and compiler desugaring. All while being packed into a few bytes (really, it's an index into a table). See the Span datatype for more.
 substs <div id="substs"/>                |  The substitutions for a given generic type or item (e.g. the `i32`, `u32` in `HashMap<i32, u32>`).
+Tag <div id="tag"/>                      |  The "tag" of an enum/generator encodes the [discriminant](#discriminant) of the active variant/state.  Tags can either be "direct" (simply storing the discriminant in a field) or use a ["niche"](#niche).
 tcx <div id="tcx"/>                      |  The "typing context", main data structure of the compiler. ([see more](../ty.html))
 'tcx <div id="lifetime-tcx"/>            |  The lifetime of the allocation arena. ([see more](../ty.html))
 token <div id="token"/>                  |  The smallest unit of parsing. Tokens are produced after lexing ([see more](../the-parser.html)).
@@ -80,6 +82,7 @@ UFCS <div id="ufcs"/>                    |  Short for Universal Function Call Sy
 uninhabited type <div id="ut"/>          |  A type which has _no_ values. This is not the same as a ZST, which has exactly 1 value. An example of an uninhabited type is `enum Foo {}`, which has no variants, and so, can never be created. The compiler can treat code that deals with uninhabited types as dead code, since there is no such value to be manipulated. `!` (the never type) is an uninhabited type. Uninhabited types are also called "empty types".
 upvar <div id="upvar"/>                  |  A variable captured by a closure from outside the closure.
 variance <div id="variance"/>            |  Determines how changes to a generic type/lifetime parameter affect subtyping; for example, if `T` is a subtype of `U`, then `Vec<T>` is a subtype `Vec<U>` because `Vec` is *covariant* in its generic parameter. See [the background chapter](./background.html#variance) for a more general explanation. See the [variance chapter](../variance.html) for an explanation of how type checking handles variance.
+Variant index <div id="variant-idx"/>    |  In an enum, identifies a variant by assigning them indices starting at 0.  This is purely internal and not to be confused with the ["discrimiant"](#discriminant) which can be overwritten by the user (e.g. `enum Bool { True = 42, False = 0 }`).
 Wide pointer <div id="wide-ptr"/>        |  A pointer with additional metadata. See "fat pointer" for more.
 ZST <div id="zst"/>                      |  Zero-Sized Type. A type whose values have size 0 bytes. Since `2^0 = 1`, such types can have exactly one value. For example, `()` (unit) is a ZST. `struct Foo;` is also a ZST. The compiler can do some nice optimizations around ZSTs.
 

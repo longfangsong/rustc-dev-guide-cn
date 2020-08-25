@@ -1,4 +1,4 @@
-![Travis CI badge](https://api.travis-ci.com/longfangsong/rustc-dev-guide-cn.svg?branch=master)
+[![Travis CI badge](https://api.travis-ci.com/rust-lang/rustc-dev-guide.svg?branch=master)](https://travis-ci.com/github/rust-lang/rustc-dev-guide)
 
 
 This is a collaborative effort to build a guide that explains how rustc
@@ -103,13 +103,17 @@ There is not a workaround for this error at the moment.  Comment out the `[outpu
 
 ## How to fix toolstate failures
 
+> **NOTE**: Currently, we do not track the rustc-dev-guide toolstate due to
+[the spurious failure](https://github.com/rust-lang/rust/pull/71731),
+but we leave this instructions for when we do it again in the future.
+
 1. You will get a ping from the toolstate commit. e.g. https://github.com/rust-lang-nursery/rust-toolstate/commit/8ffa0e4c30ac9ba8546b7046e5c4ccc2b96ebdd4
 
 2. The commit contains a link to the PR that caused the breakage. e.g. https://github.com/rust-lang/rust/pull/64321
 
 3. If you go to that PR's thread, there is a post from bors with a link to the CI status: https://github.com/rust-lang/rust/pull/64321#issuecomment-529763807
 
-4. Follow the check-azure link to get to the Azure website for that build: https://dev.azure.com/rust-lang/e71b0ddf-dd27-435a-873c-e30f86eea377/_build/results?buildId=7780
+4. Follow the check-actions link to get to the Actions page for that build
 
 5. There will be approximately 1 billion different jobs for the build. They are for different configurations and platforms. The rustc-dev-guide build only runs on the Linux x86_64-gnu-tools job. So click on that job in the list, which is about 60% down in the list.
 
@@ -132,7 +136,7 @@ git submodule update --remote src/doc/rustc-dev-guide
 git add -u
 git commit -m "Update rustc-dev-guide"
 # Note that you can use -i, which is short for --incremental, in the following command
-./x.py test --incremental --stage 1 src/doc/rustc-dev-guide # This is optional and should succeed anyway
+./x.py test --incremental src/doc/rustc-dev-guide # This is optional and should succeed anyway
 # Open a PR in rust-lang/rust
 ```
 

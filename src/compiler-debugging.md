@@ -69,11 +69,11 @@ stack backtrace:
 ## Getting a backtrace for errors
 [getting-a-backtrace-for-errors]: #getting-a-backtrace-for-errors
 
-If you want to get a backtrace to the point where the compiler emits
-an error message, you can pass the `-Z treat-err-as-bug=n`, which
-will make the compiler skip `n` errors or `delay_span_bug` calls and then
-panic on the next one. If you leave off `=n`, the compiler will assume `0` for
-`n` and thus panic on the first error it encounters.
+If you want to get a backtrace to the point where the compiler emits an
+error message, you can pass the `-Z treat-err-as-bug=n`, which will make
+the compiler panic on the `nth` error on `delay_span_bug.` If you leave
+off `=n`, the compiler will assume `1` for `n` and thus panic on the
+first error it encounters.
 
 This can also help when debugging `delay_span_bug` calls - it will make
 the first `delay_span_bug` call panic, which will give you a useful backtrace.
@@ -164,6 +164,8 @@ your log filter, e.g. to get the logs for a specific module, you can run the
 compiler as `RUSTC_LOG=module::path rustc my-file.rs`. All `debug!` output will
 then appear in standard error.
 
+If you are developing rustdoc, use `RUSTDOC_LOG` instead.
+
 **Note that unless you use a very strict filter, the logger will emit a lot of
 output, so use the most specific module(s) you can (comma-separated if
 multiple)**. It's typically a good idea to pipe standard error to a file and
@@ -174,11 +176,11 @@ So to put it together.
 ```bash
 # This puts the output of all debug calls in `librustc_middle/traits` into
 # standard error, which might fill your console backscroll.
-$ RUSTC_LOG=rustc::traits rustc +local my-file.rs
+$ RUSTC_LOG=rustc_middle::traits rustc +local my-file.rs
 
 # This puts the output of all debug calls in `librustc_middle/traits` in
 # `traits-log`, so you can then see it with a text editor.
-$ RUSTC_LOG=rustc::traits rustc +local my-file.rs 2>traits-log
+$ RUSTC_LOG=rustc_middle::traits rustc +local my-file.rs 2>traits-log
 
 # Not recommended. This will show the output of all `debug!` calls
 # in the Rust compiler, and there are a *lot* of them, so it will be
@@ -193,6 +195,12 @@ $ RUSTC_LOG=debug rustc +local my-file.rs 2>all-log
 # log rather than a `debug!` log so it will work on the official
 # compilers.
 $ RUSTC_LOG=rustc_trans=info rustc +local my-file.rs
+
+# This will show the output of all `info!` calls made by rustdoc or any rustc library it calls.
+$ RUSTDOC_LOG=info rustdoc +local my-file.rs
+
+# This will only show `debug!` calls made by rustdoc directly, not any `librustc*` crate.
+$ RUSTDOC_LOG=rustdoc rustdoc +local my-file.rs
 ```
 
 ### How to keep or remove `debug!` and `trace!` calls from the resulting binary
@@ -205,7 +213,7 @@ if you run the compiler with `RUSTC_LOG=rustc rustc some.rs` and only see
 `INFO` logs, make sure that `debug-assertions=yes` is turned on in your
 config.toml.
 
-I also think that in some cases just setting it will not trigger a rebuild,
+In some cases, just setting it will not trigger a rebuild,
 so if you changed it and you already have a compiler built, you might
 want to call `x.py clean` to force one.
 
@@ -274,3 +282,62 @@ try`. This is helpful when you want to examine the resulting build of a PR
 without doing the build yourself.
 
 [rtim]: https://github.com/kennytm/rustup-toolchain-install-master
+
+## Debugging type layouts
+
+The (permanently) unstable `#[rustc_layout]` attribute can be used to dump
+the [`Layout`] of the type it is attached to. For example:
+
+```rust
+#![feature(rustc_attrs)]
+
+#[rustc_layout(debug)]
+type T<'a> = &'a u32;
+```
+
+Will emit the following:
+
+```text
+error: layout_of(&'a u32) = Layout {
+    fields: Primitive,
+    variants: Single {
+        index: 0,
+    },
+    abi: Scalar(
+        Scalar {
+            value: Pointer,
+            valid_range: 1..=18446744073709551615,
+        },
+    ),
+    largest_niche: Some(
+        Niche {
+            offset: Size {
+                raw: 0,
+            },
+            scalar: Scalar {
+                value: Pointer,
+                valid_range: 1..=18446744073709551615,
+            },
+        },
+    ),
+    align: AbiAndPrefAlign {
+        abi: Align {
+            pow2: 3,
+        },
+        pref: Align {
+            pow2: 3,
+        },
+    },
+    size: Size {
+        raw: 8,
+    },
+}
+ --> src/lib.rs:4:1
+  |
+4 | type T<'a> = &'a u32;
+  | ^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to previous error
+```
+
+[`Layout`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Layout.html

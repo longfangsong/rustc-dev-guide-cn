@@ -50,7 +50,7 @@ before, not all of these are needed for every type of contribution.
 - **Implementation** Implement your idea unstably in the compiler. You can
   find the original implementation [here][impl1].
 - **Possibly iterate/refine** As the community gets experience with your
-  feature on the nightly compiler and in `libstd`, there may be additional
+  feature on the nightly compiler and in `std`, there may be additional
   feedback about design choice that might be adjusted. This particular feature
   went [through][impl2] a [number][impl3] of [iterations][impl4].
 - **Stabilization** When your feature has baked enough, a rust team member may
@@ -189,10 +189,10 @@ questions or discuss things you don't understand or disagree with. However,
 recognize that the PR won't be merged unless someone on the rust team approves
 it.
 
-When your review approves the PR, it will go into a queue for yet another bot
-called `@bors`.  `@bors` manages the CI build/merge queue. When your PR reaches
+When your reviewer approves the PR, it will go into a queue for yet another bot
+called `@bors`. `@bors` manages the CI build/merge queue. When your PR reaches
 the head of the `@bors` queue, `@bors` will test out the merge by running all
-tests against your PR on Travis CI. This takes a lot of time to
+tests against your PR on GitHub Actions. This takes a lot of time to
 finish. If all tests pass, the PR is merged and becomes part of the next
 nightly compiler!
 

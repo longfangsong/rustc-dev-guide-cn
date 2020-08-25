@@ -20,7 +20,7 @@ address [issue 42678](https://github.com/rust-lang/rust/issues/42678).
 Compile the compiler, up to at least stage 1:
 
 ```
-python x.py --stage 1
+x.py build library/std
 ```
 
 ### 2. Run `rustc`, with flags
@@ -74,7 +74,7 @@ _actual_ output is much longer.
 [View full HTML output][profile-example-html]. Note; it could take up
 to a second to properly render depending on your browser.
 
-Here is the corresponding text output](./example-0.counts.txt).
+Here is the corresponding [text output](./example-0.counts.txt).
 
 [profile-example-html]: ./example-0.html
 
@@ -282,7 +282,7 @@ We explain each term in more detail:
   providers may nest; see [trace of queries](#trace-of-queries) for more
   information about this nesting structure.
    _Example providers:_
-  - `typeck_tables_of` -- Typecheck a Def ID; produce "tables" of type
+  - `typeck` -- Typecheck a Def ID; produce "tables" of type
     information.
   - `borrowck` -- Borrow-check a Def ID.
   - `optimized_mir` -- Generate an optimized MIR for a Def ID; produce MIR.

@@ -77,7 +77,7 @@ rustc中的HIR可以看作是高级中间表示。
 ```rust
 mod a {
     type X = u32;
-    pub fn foo(x: X) -> i32 { 22 }
+    pub fn foo(x: X) -> u32 { 22 }
 }
 mod b {
     type X = i32;
@@ -90,15 +90,20 @@ mod b {
 
 ## `ty::Ty` 的实现
 
-[`rustc::ty::Ty`][ty_ty]实际上是[`&TyS`][tys]的类型别名（稍后会详细介绍）。
-`TyS`（Type Structure）是主要功能所在的位置。
-您通常可以忽略`TyS`结构；您基本上永远不会显式访问它。我们总是使用`Ty`别名通过引用传递它。
-唯一的例外是在类型上定义固有方法。
-特别地，`TyS`具有类型为[`TyKind`][tykind]的[`kind`][kind]字段，其表示关键类型信息。
-`TyKind`是一个很大的枚举，代表了不同类型的类型（例如原生类型，引用，抽象数据类型，泛型，生命周期等）。
-`TyS`还有另外2个字段：`flags`和`outer_exclusive_binder`。
-它们是提高效率的便捷工具，可以汇总有关我们可能想知道的类型的信息，但本文并不多涉及这部分内容。
-最后，`ty::TyS`是[interned](./memory.md)的，以便使`ty::TyS`可以是类似于指针的瘦类型。这使我们能够进行低成本的相等比较，以及其他的interning的好处。
+[`rustc_middle::ty::Ty`][ty_ty] is actually a type alias to [`&TyS`][tys].
+This type, which is short for "Type Structure", is where the main functionality is located.
+You can ignore `TyS` struct in general; you will basically never access it explicitly.
+We always pass it by reference using the `Ty` alias.
+The only exception is to define inherent methods on types. In particular, `TyS` has a [`kind`][kind]
+field of type [`TyKind`][tykind], which represents the key type information. `TyKind` is a big enum
+with variants to represent many different Rust types
+(e.g. primitives, references, abstract data types, generics, lifetimes, etc).
+`TyS` also has 2 more fields, `flags` and `outer_exclusive_binder`. They
+are convenient hacks for efficiency and summarize information about the type that we may want to
+know, but they don’t come into the picture as much here. Finally, `ty::TyS`s
+are [interned](./memory.md), so that the `ty::Ty` can be a thin pointer-like
+type. This allows us to do cheap comparisons for equality, along with the other
+benefits of interning.
 
 [tys]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/struct.TyS.html
 [kind]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/struct.TyS.html#structfield.kind
@@ -142,8 +147,13 @@ fn foo(x: Ty<'tcx>) {
 
 相关类型的很多，我们会及时介绍（例如，区域/生命周期，“替代”等）。
 
-`TyKind`枚举上有很多变体，您可以通过查看rustdocs来看到。 这是一个样本：
+There are many variants on the `TyKind` enum, which you can see by looking at its
+[documentation][tykind]. Here is a sampling:
 
+[**Algebraic Data Types (ADTs)**]() An [*algebraic Data Type*][wikiadt] is a  `struct`, `enum` or
+`union`.  Under the hood, `struct`, `enum` and `union` are actually implemented the same way: they
+are all [`ty::TyKind::Adt`][kindadt].  It’s basically a user defined type. We will talk more about
+these later.
 
 [**代数数据类型（ADT）**]() [*代数数据类型*][wikiadt]是`struct`，`enum`或`union`。 
 实际上，`struct`，`enum`和`union`是用相同的方式实现的：它们都是[`ty::TyKind::Adt`][kindadt]类型。
@@ -254,7 +264,97 @@ Adt(&'tcx AdtDef, SubstsRef<'tcx>)
 
 [`delay_span_bug`]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_session/struct.Session.html#method.delay_span_bug
 
-## 问题：为什么在`AdtDef`“内部”做替换？
+The specific `Ty` we are referring to is [`rustc_middle::ty::Ty`][ty_ty] (and not
+[`rustc_hir::Ty`][hir_ty]). The distinction is important, so we will discuss it first before going
+into the details of `ty::Ty`.
+**例如： `fn foo(x: u32) → u32 { }`** 在这个函数中，我们看到`u32`出现了两次。
+我们知道这是同一类型，即该函数接受一个参数并返回相同类型的参数，但是从HIR的角度来看，将存在两个不同的类型实例，因为它们分别在程序中的两个不同位置出现。
+也就是说，它们有两个不同的[`Span`][span]（位置）。
+**例如： `fn foo(x: &u32) -> &u32)`** 另外，HIR可能遗漏了信息。
+`&u32`类型是不完整的，因为在完整的Rust类型中实际上这里应该存在一个生命周期，但是我们不需要编写这些生命周期。
+还有一些省略规则可以插入信息。
+结果可能看起来像`fn foo<'a>(x: &'a u32) -> &'a u32)`.
+**次序**  HIR是直接从AST构建的，因此会在生成任何`ty::Ty`之前发生。
+构建HIR之后，将完成一些基本的类型推断和类型检查。
+在类型推断过程中，我们找出所有事物的`ty::Ty`是什么，并且还要检查某事物的类型是否不明确。
+然后，`ty::Ty`将用于类型检查，来确保所有内容都具有预期的类型。
+[`astconv`模块][astconv]是负责将`rustc_hir::Ty`转换为`ty::Ty`的代码所在的位置。 
+这发生在类型检查阶段，但也发生在编译器的其他部分，例如“该函数需要什么样的参数类型”之类的问题。
+Consider another example: `fn foo<T>(x: T) -> u32`. Suppose that someone invokes `foo::<u32>(0)`.
+This means that `T` and `u32` (in this invocation) actually turns out to be the same type, so we
+would eventually end up with the same `ty::Ty` in the end, but we have distinct `rustc_hir::Ty`.
+(This is a bit over-simplified, though, since during type checking, we would check the function
+generically and would still have a `T` distinct from `u32`. Later, when doing code generation,
+we would always be handling "monomorphized" (fully substituted) versions of each function,
+and hence we would know what `T` represents (and specifically that it is `u32`).)
+[`rustc_middle::ty::Ty`][ty_ty] is actually a type alias to [`&TyS`][tys].
+This type, which is short for "Type Structure", is where the main functionality is located.
+You can ignore `TyS` struct in general; you will basically never access it explicitly.
+We always pass it by reference using the `Ty` alias.
+The only exception is to define inherent methods on types. In particular, `TyS` has a [`kind`][kind]
+field of type [`TyKind`][tykind], which represents the key type information. `TyKind` is a big enum
+with variants to represent many different Rust types
+(e.g. primitives, references, abstract data types, generics, lifetimes, etc).
+`TyS` also has 2 more fields, `flags` and `outer_exclusive_binder`. They
+are convenient hacks for efficiency and summarize information about the type that we may want to
+know, but they don’t come into the picture as much here. Finally, `ty::TyS`s
+are [interned](./memory.md), so that the `ty::Ty` can be a thin pointer-like
+type. This allows us to do cheap comparisons for equality, along with the other
+benefits of interning.
+> 注意 由于类型是interned的，因此可以使用`==`高效地比较它们是否相等 —— 但是，除非您碰巧正在散列并寻找重复项，否则您应该不会希望这么做。 
+这是因为在Rust中通常有多种方法来表示同一类型，特别是一旦涉及到类型推断。
+如果要测试类型相等性，则可能需要开始研究类型推倒的代码才能正确完成。
+您还可以通过访问`tcx.types.bool`，`tcx.types.char`等来在`tcx`中找到各种常见类型（有关更多信息，请参见 [`CommonTypes`]。）。
+`TyKind`枚举上有很多变体，您可以通过查看rustdocs来看到。 这是一个样本：
+[**代数数据类型（ADT）**]() [*代数数据类型*][wikiadt]是`struct`，`enum`或`union`。 
+实际上，`struct`，`enum`和`union`是用相同的方式实现的：它们都是[`ty::TyKind::Adt`][kindadt]类型。
+这基本上是用户定义的类型。稍后我们将详细讨论。
+
+[**Foreign**][kindforeign] 对应 `extern type T`.
+
+[**Str**][kindstr] 是str类型。当用户编写`&str`时，`Str`是我们表示该类型的`str`部分的方式。
+
+[**Slice**][kindslice] 对应 `[T]`.
+
+[**Array**][kindarray] 对应 `[T; n]`.
+
+[**RawPtr**][kindrawptr] 对应 `*mut T` 或者 `*const T`
+
+[**Ref**][kindref] `Ref`代表安全的引用，`&'a mut T`或`&'a T`。
+`Ref`具有一些相关类型，例如，`Ty<tcx>`是引用所引用的类型，`Region<tcx>`是引用的生命周期或区域，`Mutability`则是引用的可变性。 
+
+[**Param**][kindparam] 代表类型参数，如`Vec<T>`中的`T`。
+
+[**Error**][kinderr] 在某处表示类型错误，以便我们可以打印出更好的诊断信息。 我们将在后面讨论它。
+
+[**以及更多**...][kindvars]
+
+- [`AdtDef`][adtdef]引用struct/enum/union，但没有类型参数的值。
+在我们的示例中，这是MyStruct部分，*没有*参数u32。
+  - 请注意，在HIR中，结构体，枚举和union的表示方式是不同的，但是在`ty::Ty`中，它们均使用`TyKind::Adt`表示。
+- [`SubstsRef`][substsref]是要替换的范型参数值的内部列表。
+在我们的`MyStruct<u32>`的示例中，我们会得到一个类似`[u32]`的列表。
+     稍后，我们将进一步探讨泛型和替换。
+`AdtDef`或多或少是`DefId`的包装，其中包含许多有用的辅助方法。
+`AdtDef`和`DefId`之间本质上是一对一的关系。
+您可以通过[`tcx.adt_def(def_id)`查询][adtdefq]`DefId`对应的`AdtDef`。 所有`AdtDef`都被缓存了（您可以看到其上的`'tcx`生命周期）。
+`TyKind::Error`的使用有一个**重要的原则**。
+除非您知道已经向用户报告了错误，否则您**绝不要**返回“错误类型”。
+通常是因为（a）您刚刚在此报告了该错误，或者（b）您正在传播现有的Error类型（在这种情况下，应该在生成该错误类型时报告该错误）。
+For added safety, it's not actually possible to produce a `TyKind::Error` value
+outside of [`rustc_middle::ty`][ty]; there is a private member of
+`TyKind::Error` that prevents it from being constructable elsewhere. Instead,
+one should use the [`TyCtxt::ty_error`][terr] or
+[`TyCtxt::ty_error_with_message`][terrmsg] methods. These methods automatically
+call `delay_span_bug` before returning an interned `Ty` of kind `Error`. If you
+were already planning to use [`delay_span_bug`], then you can just pass the
+span and message to [`ty_error_with_message`][terrmsg] instead to avoid
+delaying a redundant span bug.
+
+[terr]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/struct.TyCtxt.html#method.ty_error
+[terrmsg]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/struct.TyCtxt.html#method.ty_error_with_message
+
+## Question: Why not substitute “inside” the `AdtDef`?
 
 回想一下，我们用`(AdtDef，substs)`表示一个范型结构体。 那么，为什么要使用这种麻烦的模式？
 

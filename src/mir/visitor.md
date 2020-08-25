@@ -1,8 +1,11 @@
 # MIR 访问者
 
-MIR访问者是遍历MIR并查找事物或对其进行更改的便捷工具。
-访问者trait特征是在[`rustc ::mir::visit`模块][m-v]中定义的
-——其中有两个是通过宏生成的：`Visitor`（在`＆Mir`上运行并返回共享引用）和`MutVisitor`（在`＆mut Mir`上运行并返回可变引用）。
+The MIR visitor is a convenient tool for traversing the MIR and either
+looking for things or making changes to it. The visitor traits are
+defined in [the `rustc_middle::mir::visit` module][m-v] – there are two of
+them, generated via a single macro: `Visitor` (which operates on a
+`&Mir` and gives back shared references) and `MutVisitor` (which
+operates on a `&mut Mir` and gives back mutable references).
 
 [m-v]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/mir/visit/index.html
 
@@ -36,7 +39,7 @@ impl<'tcx> MutVisitor<'tcx> for NoLandingPads {
 
 ## 遍历
 
-In addition the visitor, [the `rustc::mir::traversal` module][t]
+In addition the visitor, [the `rustc_middle::mir::traversal` module][t]
 contains useful functions for walking the MIR CFG in
 [different standard orders][traversal] (e.g. pre-order, reverse
 post-order, and so forth).

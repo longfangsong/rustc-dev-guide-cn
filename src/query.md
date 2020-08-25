@@ -6,7 +6,7 @@
 – 例如，有一个名为`type_of(def_id)`的查询，给定某项的[def-id]，它将计算该项的类型并将其返回给您。
 
 [def-id]: appendix/glossary.md#def-id
-[hl]: high-level-overview.html
+[hl]: compiler-src.html
 
 查询执行是“**记忆式**”的 —— 因此，第一次调用查询时，它将执行计算，但是下一次，结果将从哈希表中返回。
 此外，查询执行非常适合“**增量计算**”； 大致的想法是，当您执行查询时，**可能**会通过从磁盘加载存储的数据来将结果返回给您（但这是一个单独的主题，我们将不在此处进一步讨论）。
@@ -172,9 +172,11 @@ query关键字
 （b）可以廉价地克隆。对于非平凡的数据类型，建议使用Interning方法或使用`Rc`或`Arc`。
   - 一个例外是`ty::steal::Steal`类型，该类型用于廉价地修改MIR。
 有关更多详细信息，请参见`Steal`的定义。不应该在不警告`@rust-lang/compiler`的情况下添加对`Steal`的新的使用。
-- **查询修饰符：** 各种标志和选项，可自定义查询的处理方式。
+- **查询修饰符：** various flags and options that customize how the
+  query is processed (mostly with respect to [incremental compilation][incrcomp]).
 
 [Key]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/ty/query/keys/trait.Key.html
+[incrcomp]: queries/incremental-compilation-in-detail.html#query-modifiers
 
 因此，要添加查询：
 

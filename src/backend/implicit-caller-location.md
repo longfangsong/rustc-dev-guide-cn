@@ -17,7 +17,7 @@ fn main() {
 }
 ```
 
-Prior to Rust 1.42, panics like this `unwrap()` printed a location in libcore:
+Prior to Rust 1.42, panics like this `unwrap()` printed a location in core:
 
 ```
 $ rustc +1.41.0 example.rs; example.exe
@@ -84,7 +84,7 @@ the approach: as we grow the stack down we pass an additional argument to calls 
 rather than walking up the stack when the intrinsic is called. That additional argument can be
 returned wherever the caller location is queried.
 
-The argument we append is of type `&'static core::panic::Location<'staic>`. A reference was chosen
+The argument we append is of type `&'static core::panic::Location<'static>`. A reference was chosen
 to avoid unnecessary copying because a pointer is a third the size of 
 `std::mem::size_of::<core::panic::Location>() == 24` at time of writing.
 
@@ -160,7 +160,6 @@ The `#[track_caller]` attribute is checked alongside other codegen attributes to
 function:
 
 * has the `"Rust"` ABI (as opposed to e.g., `"C"`)
-* is not a foreign import (e.g., in an `extern {...}` block)
 * is not a closure
 * is not `#[naked]`
 
